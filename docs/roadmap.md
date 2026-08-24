@@ -11,12 +11,12 @@ any phase, what exists still stands on its own.
 - [x] Single error contract via one `@RestControllerAdvice`
 - [x] Swagger UI, actuator health probes
 - [x] Docker multi-stage build + Compose
-- [x] Unit tests + Testcontainers integration tests (41 passing)
+- [x] Unit tests + Testcontainers integration tests (52 passing)
 - [x] Transaction CRUD with filtering, search and pagination
 - [x] Category CRUD (user-owned, alongside the read-only global defaults)
 - [x] Monthly budgets with per-category limits and progress tracking
-- [ ] Dashboard: totals, balance, spend by category
-- [ ] CSV export
+- [x] Analytics: summary, spend by category, monthly cashflow, composite dashboard
+- [x] CSV export (RFC 4180, UTF-8 BOM, formula-injection safe)
 - [ ] React + TypeScript + Tailwind frontend
 
 ## Phase 2 — Real-time and analytics

@@ -2,6 +2,7 @@ package com.fintrack.api.repository;
 
 import com.fintrack.api.model.EntryType;
 import com.fintrack.api.model.Transaction;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -68,6 +69,47 @@ public interface TransactionRepository
                                   @Param("categoryId") UUID categoryId,
                                   @Param("from") LocalDate from,
                                   @Param("to") LocalDate to);
+
+    /**
+     * Sum and count per direction in one round trip, for the dashboard summary. Returns at
+     * most two rows, and none at all for a period with no activity.
+     */
+    @Query("""
+            SELECT new com.fintrack.api.repository.TypeTotal(t.type, sum(t.amount), count(t))
+            FROM Transaction t
+            WHERE t.user.id = :userId AND t.occurredOn BETWEEN :from AND :to
+            GROUP BY t.type
+            """)
+    List<TypeTotal> totalsByType(@Param("userId") UUID userId,
+                                 @Param("from") LocalDate from,
+                                 @Param("to") LocalDate to);
+
+    /**
+     * Monthly income and expense totals across a range, for the cashflow chart.
+     * <p>
+     * Months with no activity simply do not appear; the service fills those gaps, since a
+     * chart that skips empty months draws a misleading slope between the ones it has.
+     */
+    @Query("""
+            SELECT new com.fintrack.api.repository.PeriodTotal(
+                       year(t.occurredOn), month(t.occurredOn), t.type, sum(t.amount), count(t))
+            FROM Transaction t
+            WHERE t.user.id = :userId AND t.occurredOn BETWEEN :from AND :to
+            GROUP BY year(t.occurredOn), month(t.occurredOn), t.type
+            ORDER BY year(t.occurredOn), month(t.occurredOn)
+            """)
+    List<PeriodTotal> totalsByMonth(@Param("userId") UUID userId,
+                                    @Param("from") LocalDate from,
+                                    @Param("to") LocalDate to);
+
+    /** Most recent activity for the dashboard, category fetched to avoid an N+1. */
+    @Query("""
+            SELECT t FROM Transaction t
+            LEFT JOIN FETCH t.category
+            WHERE t.user.id = :userId
+            ORDER BY t.occurredOn DESC, t.createdAt DESC
+            """)
+    List<Transaction> findRecent(@Param("userId") UUID userId, Pageable pageable);
 
     boolean existsByCategoryId(UUID categoryId);
 }

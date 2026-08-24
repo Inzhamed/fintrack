@@ -5,9 +5,9 @@ dashboard over the result. Built as a depth project — the goal is production h
 (migrations, real error contracts, integration tests against real infrastructure), not
 feature count.
 
-**Status: Phase 1 in progress.** Auth, categories, transactions and budgets are complete
-and tested end to end. Dashboard, CSV export and the React frontend are next. See
-[docs/roadmap.md](docs/roadmap.md).
+**Status: Phase 1 in progress.** The backend is feature-complete for the MVP - auth,
+categories, transactions, budgets, analytics and CSV export, all tested end to end. The
+React frontend is what remains. See [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -75,8 +75,9 @@ run in `verify` and start a real PostgreSQL 16 through Testcontainers, applying 
 Flyway migrations — so the suite catches SQL that an in-memory database would have
 accepted. Docker must be running for that half.
 
-Currently 41 tests: 8 on JWT issuing and verification, 11 on the auth flow, 11 on
-transactions and categories, 10 on budget progress, plus a context-load check.
+Currently 52 tests: 8 on JWT issuing and verification, 11 on the auth flow, 11 on
+transactions and categories, 10 on budget progress, 11 on analytics, 9 on CSV export,
+plus a context-load check.
 
 ---
 
@@ -98,6 +99,9 @@ ones marked public.
 | POST | `/budgets` `/budgets/{id}/items` | |
 | PATCH · DELETE | `/budget-items/{id}` | |
 | DELETE | `/budgets/{id}` | |
+| GET | `/dashboard` | the whole landing screen in one call |
+| GET | `/analytics/summary` `/analytics/by-category` `/analytics/cashflow` | range defaults to the current month |
+| GET | `/transactions/export` | CSV; takes the same filters as the list |
 
 Transaction filters combine with AND: `from`, `to`, `type`, `categoryId`,
 `uncategorised`, `minAmount`, `maxAmount`, `search` (description or merchant,
@@ -184,6 +188,29 @@ partial update outright.
 **Deleting a category never deletes history.** The FK nulls the reference, so affected
 transactions become uncategorised instead of disappearing. Because that is a lot of silent
 change for one DELETE, it returns 409 until the caller passes `?force=true`.
+
+**The dashboard is one request, not five.** A screen assembled from five round trips shows
+five loading states and can render a summary from one moment beside a chart from another.
+`/dashboard` returns this month, last month, the category breakdown, a six-month trend,
+recent activity and budget alerts from a single consistent snapshot — and its alerts reuse
+the breakdown it already computed, so the warnings can never disagree with the chart
+beside them.
+
+**Cashflow fills empty months with zeros.** Omitting a month with no activity makes a chart
+draw a straight line across the gap, implying spending that never happened.
+
+**Savings rate is null, not zero, when there was no income.** "Kept 0% of nothing" is a
+different statement from "kept none of what you earned", and only one of them is true.
+
+**CSV export defuses formula injection.** A description of `=HYPERLINK(...)` or `+15551234`
+executes when a spreadsheet opens the file, and descriptions come from whatever the user
+typed or a bank import supplied. Dangerous leading characters get an apostrophe prefix at
+render time; the stored value is never altered, because only this rendering is unsafe. The
+file is UTF-8 with a BOM — without it Excel reads the system codepage and mangles accents —
+and uses CRLF and RFC 4180 quoting.
+
+**The export reuses the list endpoint's Specifications.** Same filters, same predicates, so
+a download can never disagree with what was on screen when the user clicked it.
 
 ---
 

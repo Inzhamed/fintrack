@@ -6,6 +6,7 @@ import com.fintrack.api.dto.transaction.TransactionFilter;
 import com.fintrack.api.dto.transaction.TransactionResponse;
 import com.fintrack.api.dto.transaction.UpdateTransactionRequest;
 import com.fintrack.api.security.AuthenticatedUser;
+import com.fintrack.api.service.CsvExportService;
 import com.fintrack.api.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,10 +16,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @RestController
@@ -28,6 +34,7 @@ import java.util.UUID;
 public class TransactionController {
 
     private final TransactionService transactionService;
+    private final CsvExportService csvExportService;
 
     @GetMapping
     @Operation(summary = "List transactions",
@@ -40,6 +47,25 @@ public class TransactionController {
             @PageableDefault(size = 25, sort = "occurredOn", direction = Sort.Direction.DESC)
             Pageable pageable) {
         return transactionService.list(principal.id(), filter, pageable);
+    }
+
+    @GetMapping(value = "/export", produces = "text/csv")
+    @Operation(summary = "Export matching transactions as CSV",
+            description = "Accepts the same filters as the list endpoint, so the file matches "
+                    + "exactly what was on screen. UTF-8 with a BOM for Excel; capped at 50,000 rows.")
+    public ResponseEntity<byte[]> exportCsv(@AuthenticationPrincipal AuthenticatedUser principal,
+                                            @Parameter(description = "Same filters as the list endpoint")
+                                            TransactionFilter filter) {
+        byte[] csv = csvExportService.export(principal.id(), filter);
+
+        return ResponseEntity.ok()
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                // attachment, so the browser saves it rather than rendering it as a page.
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(csvExportService.fileName(filter))
+                                .build().toString())
+                .body(csv);
     }
 
     @GetMapping("/{id}")
