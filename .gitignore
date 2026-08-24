@@ -1,0 +1,34 @@
+# Build output
+target/
+dist/
+build/
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# Dependencies
+node_modules/
+
+# Environment - secrets live here, never in the repo
+.env
+.env.local
+*.env
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Note: database migrations are source code and are deliberately NOT ignored.

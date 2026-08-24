@@ -1,0 +1,82 @@
+# Base configuration. Every secret is read from the environment with no default,
+# so the application refuses to boot rather than silently running on a well-known
+# credential. `docker compose up` supplies these from the root .env file.
+
+spring:
+  application:
+    name: fintrack-api
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/fintrack}
+    username: ${DB_USER:fintrack}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema. Hibernate only checks that the entity mappings agree
+      # with the migrated database and refuses to start if they have drifted apart.
+      ddl-auto: validate
+    open-in-view: false          # No lazy loading during view rendering. Fail loudly instead.
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # This project starts from an empty database, so baselining is never needed.
+    baseline-on-migrate: false
+
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: true   # Reject typo'd request fields instead of ignoring them
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    # Errors are produced by the @RestControllerAdvice, never by the servlet container's
+    # default page, which would leak a stack trace and a different JSON shape.
+    include-message: never
+    include-stacktrace: never
+    whitelabel:
+      enabled: false
+
+fintrack:
+  security:
+    jwt:
+      # HS256 signing key, base64-encoded, minimum 256 bits. Generate with:
+      #   openssl rand -base64 48
+      secret: ${JWT_SECRET}
+      issuer: fintrack
+      access-token-ttl: PT15M      # Short-lived: a stolen access token expires fast.
+      refresh-token-ttl: P30D      # Long-lived but revocable, hashed, and rotated on use.
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Kubernetes needs health; Phase 5 adds prometheus. Nothing else is public.
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true            # /actuator/health/{liveness,readiness} for k8s probes
+      show-details: never
+
+logging:
+  level:
+    org.flywaydb: INFO

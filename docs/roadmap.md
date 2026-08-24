@@ -1,0 +1,45 @@
+# Roadmap
+
+Every phase ends with something that runs and can be demonstrated. If work stops after
+any phase, what exists still stands on its own.
+
+## Phase 1 — MVP  *(in progress)*
+
+- [x] Flyway schema: users, refresh tokens, categories, transactions, budgets, budget items
+- [x] Seeded default categories (12 expense, 5 income)
+- [x] JWT auth: register, login, refresh with rotation, logout, logout-everywhere
+- [x] Single error contract via one `@RestControllerAdvice`
+- [x] Swagger UI, actuator health probes
+- [x] Docker multi-stage build + Compose
+- [x] Unit tests + Testcontainers integration tests (20 passing)
+- [ ] Transaction CRUD with filtering and pagination
+- [ ] Category CRUD (user-owned, alongside the global defaults)
+- [ ] Monthly budgets and per-category budget items
+- [ ] Dashboard: totals, balance, spend by category
+- [ ] CSV export
+- [ ] React + TypeScript + Tailwind frontend
+
+## Phase 2 — Real-time and analytics
+
+Redis caching and login rate limiting, WebSocket budget-threshold alerts, analytics
+endpoints, bills and reminders on a scheduler, receipt upload to S3-compatible storage.
+
+## Phase 3 — Testing and CI/CD
+
+Coverage gates, Playwright E2E, GitHub Actions matrix pipeline, GHCR image publishing,
+Trivy scanning, Dependabot.
+
+## Phase 4 — Kubernetes and Terraform
+
+k3d locally, then a Helm chart, then Terraform-provisioned infrastructure and a live
+deployment on k3s with real TLS.
+
+## Phase 5 — Observability and events
+
+Prometheus, Grafana, structured logging with correlation ids. Then Redpanda for
+event-driven budget recalculation, and one worker extracted as a separate service.
+
+## Phase 6 — Hardening and AI
+
+TOTP 2FA, OWASP headers, GDPR export and delete. Then LLM-assisted transaction
+categorisation with a rules fallback, and monthly summaries.

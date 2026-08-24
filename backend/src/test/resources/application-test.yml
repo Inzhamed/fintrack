@@ -1,0 +1,28 @@
+# Test-profile OVERRIDES only.
+#
+# Deliberately named application-test.yml rather than application.yml: a file called
+# application.yml in src/test/resources sits earlier on the test classpath and *shadows*
+# the main one outright - it does not merge with it. That silently drops every setting the
+# application relies on, which is how a strict-binding rule can be configured in main and
+# still be inactive under test. As a profile, this file layers on top instead.
+#
+# Activated by @ActiveProfiles("test").
+
+spring:
+  datasource:
+    # Overrides the ${DB_PASSWORD} placeholder from the base config so it is never resolved.
+    # The real values are injected at runtime by @ServiceConnection from the Testcontainers
+    # Postgres, which is why the url and username are not set here.
+    password: testcontainers
+
+fintrack:
+  security:
+    jwt:
+      # Fixed, obviously-fake key so tests are deterministic. 51 bytes (408 bits) -> HS384.
+      secret: dGVzdC1vbmx5LXNlY3JldC1uZXZlci11c2UtaW4tcHJvZHVjdGlvbi0wMTIzNDU2Nzg5
+      issuer: fintrack-test
+
+logging:
+  level:
+    org.hibernate.SQL: WARN
+    org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer: ERROR
