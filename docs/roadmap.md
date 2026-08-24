@@ -11,10 +11,10 @@ any phase, what exists still stands on its own.
 - [x] Single error contract via one `@RestControllerAdvice`
 - [x] Swagger UI, actuator health probes
 - [x] Docker multi-stage build + Compose
-- [x] Unit tests + Testcontainers integration tests (20 passing)
-- [ ] Transaction CRUD with filtering and pagination
-- [ ] Category CRUD (user-owned, alongside the global defaults)
-- [ ] Monthly budgets and per-category budget items
+- [x] Unit tests + Testcontainers integration tests (41 passing)
+- [x] Transaction CRUD with filtering, search and pagination
+- [x] Category CRUD (user-owned, alongside the read-only global defaults)
+- [x] Monthly budgets with per-category limits and progress tracking
 - [ ] Dashboard: totals, balance, spend by category
 - [ ] CSV export
 - [ ] React + TypeScript + Tailwind frontend

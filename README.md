@@ -5,8 +5,8 @@ dashboard over the result. Built as a depth project — the goal is production h
 (migrations, real error contracts, integration tests against real infrastructure), not
 feature count.
 
-**Status: Phase 1 in progress.** Authentication is complete and tested end to end.
-Transactions, budgets, dashboard and CSV export are next. See
+**Status: Phase 1 in progress.** Auth, categories, transactions and budgets are complete
+and tested end to end. Dashboard, CSV export and the React frontend are next. See
 [docs/roadmap.md](docs/roadmap.md).
 
 ---
@@ -75,8 +75,39 @@ run in `verify` and start a real PostgreSQL 16 through Testcontainers, applying 
 Flyway migrations — so the suite catches SQL that an in-memory database would have
 accepted. Docker must be running for that half.
 
-Currently 20 tests: 8 covering JWT issuing and verification, 11 covering the auth flow
-end to end, plus a context-load check.
+Currently 41 tests: 8 on JWT issuing and verification, 11 on the auth flow, 11 on
+transactions and categories, 10 on budget progress, plus a context-load check.
+
+---
+
+## Endpoints
+
+All routes below `/api/v1` require `Authorization: Bearer <accessToken>` except the auth
+ones marked public.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/auth/register` `/auth/login` `/auth/refresh` `/auth/logout` | public |
+| POST | `/auth/logout-all` | revokes every session |
+| GET | `/auth/me` | the current account |
+| GET | `/categories` | globals + the caller's own; `?type=EXPENSE\|INCOME` |
+| POST · PATCH · DELETE | `/categories` `/categories/{id}` | globals are read-only; delete takes `?force=true` |
+| GET | `/transactions` | filters below, paginated |
+| POST · GET · PATCH · DELETE | `/transactions` `/transactions/{id}` | |
+| GET | `/budgets` `/budgets/{year}/{month}` | the month view carries full progress |
+| POST | `/budgets` `/budgets/{id}/items` | |
+| PATCH · DELETE | `/budget-items/{id}` | |
+| DELETE | `/budgets/{id}` | |
+
+Transaction filters combine with AND: `from`, `to`, `type`, `categoryId`,
+`uncategorised`, `minAmount`, `maxAmount`, `search` (description or merchant,
+case-insensitive), plus `page`, `size` and `sort` — for example:
+
+```
+GET /api/v1/transactions?from=2026-08-01&to=2026-08-31&type=EXPENSE&minAmount=1000&sort=amount,desc
+```
+
+Lists return `{"data": [...], "meta": {page, size, total, totalPages, hasNext}}`.
 
 ---
 
@@ -123,6 +154,36 @@ shipped for about ten minutes before a test caught it.
 **Failed logins are indistinguishable.** A wrong password and an unregistered address
 return byte-identical responses, so the endpoint cannot be used to enumerate accounts.
 There is a test asserting exactly that.
+
+**Ownership is a query predicate, not a post-load check.** Every read is scoped by user id
+in the query itself. Loading by id and then comparing the owner is one forgotten branch
+away from a leak, and it answers differently for "exists but not yours" than for "does not
+exist". Cross-user access returns 404, never 403, so the response never confirms that an
+id exists.
+
+**A transaction's category must point the same way it does.** Categories and transactions
+share one `EntryType`, so an expense filed under "Salary" is rejected by the domain rather
+than quietly skewing every report that groups by category.
+
+**Budget progress is computed server-side, in a fixed number of queries.** A month's view
+costs three statements no matter how many categories are budgeted — one fetch-join for the
+budget and its items, one grouped expense aggregate, one income sum — verified by counting
+statements at 3 items and again at 7. Deriving "82%" in each client is three chances to
+round it differently from the alert that fires at 80%.
+
+**The budget reports what it is not tracking.** `uncategorisedSpend` and `unbudgetedSpend`
+are first-class fields, because a budget that silently ignores part of the month's outgo
+is worse than none — every tracked line can read healthy while money leaks past them.
+
+**PATCH bodies distinguish absent from null.** Omitting a field leaves it unchanged, so
+clearing a transaction's category needs its own `clearCategory` flag. That flag is a
+`Boolean`, not a `boolean`: absent is a third state a primitive cannot carry — and Jackson
+3 enables `FAIL_ON_NULL_FOR_PRIMITIVES` by default, so a primitive would reject every
+partial update outright.
+
+**Deleting a category never deletes history.** The FK nulls the reference, so affected
+transactions become uncategorised instead of disappearing. Because that is a lot of silent
+change for one DELETE, it returns 409 until the caller passes `?force=true`.
 
 ---
 

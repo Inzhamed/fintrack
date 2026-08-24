@@ -92,6 +92,10 @@ public class GlobalExceptionHandler {
                     Map.of("field", field, "expected", invalid.getTargetType().getSimpleName()),
                     request);
         }
+        // The parser message names types and field paths, so it is logged rather than
+        // returned - the client gets a generic reason, the server keeps the detail.
+        log.warn("Unreadable request body on {}: {}", request.getRequestURI(),
+                cause == null ? ex.getMessage() : cause.toString());
         return respond(ErrorCode.MALFORMED_REQUEST, "Request body is not readable JSON", Map.of(), request);
     }
 

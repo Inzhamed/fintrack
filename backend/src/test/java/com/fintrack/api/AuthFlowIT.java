@@ -1,20 +1,12 @@
 package com.fintrack.api;
 
-import com.fintrack.api.repository.RefreshTokenRepository;
 import com.fintrack.api.repository.UserRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -30,30 +22,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * clicking around: case-insensitive email uniqueness, indistinguishable failure responses,
  * and refresh-token rotation with reuse detection.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(TestcontainersConfiguration.class)
-@ActiveProfiles("test")
-class AuthFlowIT {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+class AuthFlowIT extends AbstractIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
-
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
-
-    @BeforeEach
-    void resetState() {
-        // Each test starts from an empty account table. Categories seeded by V2 stay.
-        refreshTokenRepository.deleteAll();
-        userRepository.deleteAll();
-    }
 
     private static String registerBody(String email, String password) {
         return """
