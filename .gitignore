@@ -35,3 +35,12 @@ logs/
 
 # Vite / frontend build cache
 .vite/
+
+# Playwright output
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/blob-report/
+/frontend/.playwright/
+
+# Coverage output
+/frontend/coverage/
