@@ -1,0 +1,100 @@
+{{- if .Values.postgres.enabled }}
+{{/*
+In-cluster Postgres as a StatefulSet.
+
+A StatefulSet rather than a Deployment because the pod needs a stable identity and its own
+volume: a Deployment's pods share one PVC and would corrupt the data directory the moment two
+existed at once during a rolling update.
+
+For anything beyond a single-node deployment this should be a managed database - point
+postgres.externalHost at it and set postgres.enabled to false. Running a database in the same
+cluster as the app trades away the operational separation that makes restores survivable.
+*/}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "fintrack.fullname" . }}-postgres
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  serviceName: {{ include "fintrack.fullname" . }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "fintrack.selectorLabels" (dict "root" . "component" "postgres") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fintrack.selectorLabels" (dict "root" . "component" "postgres") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsUser: 70          # the postgres user in the alpine image
+        runAsGroup: 70
+        fsGroup: 70
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.username | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fintrack.secretName" . }}
+                  key: DB_PASSWORD
+            # The image refuses to initialise into a non-empty directory, and a mounted
+            # volume already contains lost+found. A subdirectory sidesteps that.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.username | quote }}, "-d", {{ .Values.postgres.database | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.username | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fintrack.fullname" . }}-postgres
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  # Headless: a StatefulSet pod is addressed by its stable DNS name, and there is nothing to
+  # load balance across with a single replica.
+  clusterIP: None
+  ports:
+    - port: 5432
+      targetPort: postgres
+      name: postgres
+  selector:
+    {{- include "fintrack.selectorLabels" (dict "root" . "component" "postgres") | nindent 4 }}
+{{- end }}

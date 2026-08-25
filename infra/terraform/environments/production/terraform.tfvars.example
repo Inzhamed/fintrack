@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored: these identify a real
+# account, and ssh_allowed_cidr reveals where its operator connects from.
+
+region              = "eu-frankfurt-1"
+compartment_id      = "ocid1.tenancy.oc1..replace-me"
+availability_domain = "abCd:EU-FRANKFURT-1-AD-1"
+
+# An aarch64 Ubuntu image. Find the current OCID with:
+#   oci compute image list --compartment-id <ocid> \
+#     --operating-system "Canonical Ubuntu" --shape VM.Standard.A1.Flex
+image_id = "ocid1.image.oc1.eu-frankfurt-1.replace-me"
+
+ssh_public_key = "ssh-ed25519 AAAA... you@example.com"
+
+# Your own address. 0.0.0.0/0 on port 22 attracts credential-stuffing within minutes.
+ssh_allowed_cidr = "203.0.113.4/32"

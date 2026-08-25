@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fintrack.fullname" . }}-web
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.web.name }}
+spec:
+  {{- if not .Values.web.autoscaling.enabled }}
+  replicas: {{ .Values.web.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "fintrack.selectorLabels" (dict "root" . "component" .Values.web.name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fintrack.selectorLabels" (dict "root" . "component" .Values.web.name) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "fintrack.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: web
+          image: {{ include "fintrack.image" (dict "root" . "component" "web") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.web.port }}
+          {{/*
+            nginx serving static files starts in under a second and has no dependencies, so
+            it needs no startup probe - readiness and liveness on the same cheap endpoint
+            are enough.
+          */}}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}

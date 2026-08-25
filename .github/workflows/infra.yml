@@ -1,0 +1,91 @@
+name: Infrastructure
+
+on:
+  push:
+    branches: ['**']
+    paths: ['infra/**', '.github/workflows/infra.yml']
+  pull_request:
+    branches: [main]
+    paths: ['infra/**', '.github/workflows/infra.yml']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  helm:
+    name: Chart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      - name: Lint
+        run: |
+          helm lint infra/helm/fintrack \
+            --set secrets.dbPassword=ci \
+            --set secrets.jwtSecret=ci \
+            --set secrets.storageSecretKey=ci
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL -o kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform.tar.gz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+
+      # Every overlay is rendered and schema-checked, not just the default values. A chart
+      # that only renders under its defaults breaks on the environment nobody templated.
+      - name: Validate every environment
+        run: |
+          for env in infra/helm/environments/*.yaml; do
+            echo "::group::$(basename "$env")"
+            helm template fintrack infra/helm/fintrack -f "$env" \
+              --set image.tag=ci-test \
+              --set secrets.dbPassword=ci \
+              --set secrets.jwtSecret=ci \
+              --set secrets.storageSecretKey=ci \
+              | kubeconform -strict -summary -kubernetes-version 1.31.0
+            echo "::endgroup::"
+          done
+
+      # The chart must refuse to install without credentials rather than deploying a blank
+      # password. Asserted here so the guard cannot be removed unnoticed.
+      - name: Refuses to render without secrets
+        run: |
+          if helm template fintrack infra/helm/fintrack >/dev/null 2>&1; then
+            echo "The chart rendered with no secrets set. The guard is gone."
+            exit 1
+          fi
+          echo "Correctly refused."
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.3
+
+      - name: Check formatting
+        run: terraform fmt -recursive -check -diff infra/terraform
+
+      # -backend=false so no credentials are needed: this validates the configuration, it
+      # does not touch or read any real state.
+      - name: Initialise
+        working-directory: infra/terraform/environments/production
+        run: terraform init -backend=false -input=false
+
+      - name: Validate
+        working-directory: infra/terraform/environments/production
+        run: terraform validate

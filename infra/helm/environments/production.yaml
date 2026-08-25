@@ -1,0 +1,63 @@
+# A single small server - an Oracle Always Free ARM instance running k3s.
+#
+# The shape is dictated by that: one node, so no anti-affinity to express and no point
+# autoscaling past the CPU the node has.
+
+image:
+  registry: ghcr.io
+  repository: inzhamed/fintrack
+  # Set at deploy time to a commit sha. A moving tag gives no way to tell what is running,
+  # and no way to roll back to a specific build.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+api:
+  replicaCount: 2          # survives one pod restarting without dropping the site
+  resources:
+    requests:
+      cpu: 300m
+      memory: 640Mi
+    limits:
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+
+web:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 3
+
+ingress:
+  enabled: true
+  className: traefik
+  host: fintrack.example.com     # replaced with the real domain at deploy time
+  tls:
+    enabled: true
+    issuer: letsencrypt-prod
+    secretName: fintrack-tls
+
+postgres:
+  # Still in-cluster, because a managed database costs more than the server does. The honest
+  # consequence: backups are a cron job against the volume, and there is no failover. The
+  # first thing to change if this ever holds data worth keeping.
+  enabled: true
+  storage: 20Gi
+
+redis:
+  enabled: true
+
+storage:
+  enabled: true
+  storageSize: 20Gi
+  publicEndpoint: "https://fintrack.example.com/storage"
+
+secrets:
+  # Never in a values file. Created out of band - `kubectl create secret generic ...` - and
+  # referenced by name, so credentials never reach the chart, the repository, or the release
+  # history Helm stores in the cluster.
+  existingSecret: fintrack-secrets

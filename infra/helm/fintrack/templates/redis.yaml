@@ -1,0 +1,76 @@
+{{- if .Values.redis.enabled }}
+{{/*
+A Deployment, not a StatefulSet: everything Redis holds here is a cache or a rate-limit
+counter, both safe to lose. Giving it a volume would preserve data that is worthless after a
+restart while adding a stateful component to operate.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fintrack.fullname" . }}-redis
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "fintrack.selectorLabels" (dict "root" . "component" "redis") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fintrack.selectorLabels" (dict "root" . "component" "redis") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          args:
+            - redis-server
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+            - --maxmemory
+            - 256mb
+            # Evict the least recently used key rather than refusing writes when full: a
+            # cache that starts erroring is worse than one that forgets.
+            - --maxmemory-policy
+            - allkeys-lru
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 320Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fintrack.fullname" . }}-redis
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: redis
+      name: redis
+  selector:
+    {{- include "fintrack.selectorLabels" (dict "root" . "component" "redis") | nindent 4 }}
+{{- end }}

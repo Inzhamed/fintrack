@@ -1,0 +1,29 @@
+{{/*
+Non-secret configuration.
+
+Split from the Secret so that a change to, say, the CORS origins does not require touching
+credentials - and so the whole ConfigMap can be read by anyone debugging the deployment
+without exposing anything.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fintrack.fullname" . }}-config
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+data:
+  DATABASE_URL: {{ printf "jdbc:postgresql://%s:5432/%s" (include "fintrack.postgresHost" .) .Values.postgres.database | quote }}
+  DB_USER: {{ .Values.postgres.username | quote }}
+  REDIS_HOST: {{ include "fintrack.redisHost" . | quote }}
+  REDIS_PORT: "6379"
+  STORAGE_ENDPOINT: {{ printf "http://%s:9000" (include "fintrack.storageHost" .) | quote }}
+  {{/*
+    Presigned URLs are signed against the browser-visible host. A cluster-internal service
+    name does not resolve outside the cluster, and the signature covers the host, so it
+    cannot be rewritten after the fact.
+  */}}
+  STORAGE_PUBLIC_ENDPOINT: {{ default (printf "https://%s/storage" .Values.ingress.host) .Values.storage.publicEndpoint | quote }}
+  STORAGE_BUCKET: {{ .Values.storage.bucket | quote }}
+  CORS_ALLOWED_ORIGINS: {{ printf "https://%s" .Values.ingress.host | quote }}
+  SERVER_PORT: {{ .Values.api.port | quote }}
+  JAVA_OPTS: {{ .Values.api.javaOpts | quote }}

@@ -1,0 +1,28 @@
+FinTrack {{ .Chart.AppVersion }} is installed as {{ .Release.Name }}.
+
+{{- if .Values.ingress.enabled }}
+
+Reach it at:
+  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
+
+{{- if not .Values.ingress.tls.enabled }}
+
+TLS is off. Fine for a local cluster; for anything reachable from the internet set
+ingress.tls.enabled=true and install cert-manager, or the session token travels in clear.
+{{- end }}
+{{- else }}
+
+No ingress. Reach the app by port-forwarding:
+  kubectl port-forward svc/{{ include "fintrack.fullname" . }}-web 8080:{{ .Values.web.port }}
+{{- end }}
+
+Check it came up:
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl logs -l app.kubernetes.io/component={{ .Values.api.name }} --tail=50
+
+{{- if .Values.postgres.enabled }}
+
+NOTE: Postgres is running inside the cluster with a {{ .Values.postgres.storage }} volume.
+That is fine for a single node, but there are no backups and no failover. Point
+postgres.externalHost at a managed database before this holds anything you would miss.
+{{- end }}

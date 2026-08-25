@@ -5,10 +5,11 @@ dashboard over the result. Built as a depth project — the goal is production h
 (migrations, real error contracts, integration tests against real infrastructure), not
 feature count.
 
-**Status: Phase 3 complete.** A working full-stack app - sign in, record income and
+**Status: Phase 4 — chart and infrastructure written, deployment pending.** A working full-stack app - sign in, record income and
 expenses, attach receipts, set monthly budgets and get warned live when you approach one,
-track recurring bills, watch the dashboard, export to CSV. Phase 4 is Kubernetes and
-Terraform. See [docs/roadmap.md](docs/roadmap.md).
+track recurring bills, watch the dashboard, export to CSV. The Helm chart and Terraform are
+written and validated but not yet deployed — see [infra/README.md](infra/README.md) and
+[docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -26,6 +27,8 @@ Terraform. See [docs/roadmap.md](docs/roadmap.md).
 | Tests | JUnit 5, AssertJ, MockMvc, Testcontainers |
 | Frontend | React 19, TypeScript, Vite 8, Tailwind 4, Redux Toolkit, TanStack Query, Recharts |
 | Delivery | Docker multi-stage builds, Docker Compose, nginx |
+| Orchestration | Helm chart for k3s/k3d, Traefik ingress, cert-manager |
+| Infrastructure | Terraform (Oracle Cloud Always Free) |
 
 ---
 

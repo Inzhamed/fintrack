@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fintrack.fullname" . }}-api
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.api.name }}
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "fintrack.selectorLabels" (dict "root" . "component" .Values.api.name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fintrack.selectorLabels" (dict "root" . "component" .Values.api.name) | nindent 8 }}
+      annotations:
+        {{/*
+          Hashing the config and secret into an annotation is what makes a change to either
+          actually reach the running pods. Kubernetes does not restart a Deployment when a
+          referenced ConfigMap changes, so without this a config update appears to succeed
+          while every pod carries on with the old values.
+        */}}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if not .Values.secrets.existingSecret }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "fintrack.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "fintrack.image" (dict "root" . "component" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "fintrack.fullname" . }}-config
+            - secretRef:
+                name: {{ include "fintrack.secretName" . }}
+
+          {{/*
+            Three probes, because they answer three different questions.
+
+            startup:   "has it finished booting?" - a JVM running Flyway can take 40 seconds,
+                       and without this the liveness probe would kill it mid-migration and
+                       loop forever.
+            readiness: "should it receive traffic?" - fails when a dependency is unreachable,
+                       removing the pod from the Service without restarting it.
+            liveness:  "is it wedged?" - the only one that restarts the container, so it is
+                       the most conservative.
+          */}}
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24        # up to two minutes to start
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            # Higher than readiness: a slow response should stop traffic, not kill the pod.
+            failureThreshold: 5
+
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+
+      {{/*
+        Long enough for in-flight requests to finish. The default 30s is usually fine, but a
+        CSV export of a large account can outlast it and would be cut off mid-download.
+      */}}
+      terminationGracePeriodSeconds: 45

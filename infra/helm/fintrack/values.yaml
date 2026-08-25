@@ -1,0 +1,119 @@
+# Defaults, shaped for a small single-node cluster. Every environment overlays this file
+# rather than replacing it, so a value only appears in an overlay when it genuinely differs.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  registry: ghcr.io
+  repository: inzhamed/fintrack
+  # Empty means "use the chart's appVersion". A deploy should pin a digest or a commit sha
+  # rather than a moving tag - :latest gives no way to tell what is actually running.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+api:
+  name: api
+  replicaCount: 1
+  port: 8080
+
+  resources:
+    # Requests are what the scheduler reserves; limits are what the kernel enforces.
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      # No CPU limit on purpose: CFS throttling on a JVM causes latency spikes far worse
+      # than the noisy-neighbour problem the limit is meant to solve. Memory *is* limited,
+      # because a leak with no ceiling takes the whole node down rather than one pod.
+      memory: 1Gi
+
+  # MaxRAMPercentage rather than a fixed -Xmx, so the heap follows the container limit and
+  # the two cannot drift apart when the limit is tuned.
+  javaOpts: "-XX:MaxRAMPercentage=75 -XX:+UseContainerSupport"
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+
+web:
+  name: web
+  replicaCount: 1
+  port: 8080
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+
+ingress:
+  enabled: true
+  className: traefik
+  host: fintrack.local
+  tls:
+    enabled: false
+    # cert-manager issues and renews the certificate; without it the secret has to be
+    # created and rotated by hand.
+    issuer: letsencrypt-prod
+    secretName: fintrack-tls
+
+postgres:
+  # In-cluster Postgres, for a single-node deployment where a managed database would cost
+  # more than the whole server. Point externalHost at a managed instance to switch.
+  enabled: true
+  image: postgres:16-alpine
+  database: fintrack
+  username: fintrack
+  storage: 5Gi
+  externalHost: ""
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+  # No persistence: everything in Redis here is a cache or a rate-limit counter, both safe
+  # to lose on restart.
+  externalHost: ""
+
+storage:
+  enabled: true
+  image: minio/minio:latest
+  bucket: fintrack-receipts
+  storageSize: 10Gi
+  # Where a *browser* reaches object storage. Presigned URLs are signed against this, and a
+  # cluster-internal service name does not resolve outside the cluster.
+  publicEndpoint: ""
+
+# Secrets are never committed. Either supply them at install time with --set, or create the
+# Secret out of band and name it here.
+secrets:
+  # When set, the chart references this existing Secret instead of creating one.
+  existingSecret: ""
+  dbPassword: ""
+  jwtSecret: ""
+  storageAccessKey: "fintrack"
+  storageSecretKey: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: [ALL]

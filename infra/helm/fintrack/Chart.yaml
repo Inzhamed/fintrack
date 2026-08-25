@@ -1,0 +1,13 @@
+apiVersion: v2
+name: fintrack
+description: FinTrack — personal finance API and web frontend
+type: application
+
+# The chart's own version, bumped when the templates change.
+version: 0.1.0
+
+# The application version this chart deploys by default. Overridden per environment by
+# image.tag, so a deploy pins an exact build rather than following a moving tag.
+appVersion: "0.1.0"
+
+keywords: [finance, spring-boot, react]

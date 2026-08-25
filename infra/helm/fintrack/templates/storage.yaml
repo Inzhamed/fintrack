@@ -1,0 +1,102 @@
+{{- if .Values.storage.enabled }}
+{{/*
+MinIO for receipt objects. A StatefulSet for the same reason as Postgres: it owns a volume
+and needs a stable identity.
+
+In a real deployment this is the first thing to replace with a managed store - S3 or
+Cloudflare R2 - since the SDK code is identical and object storage is precisely the workload
+you do not want to be responsible for durability on.
+*/}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "fintrack.fullname" . }}-storage
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  serviceName: {{ include "fintrack.fullname" . }}-storage
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "fintrack.selectorLabels" (dict "root" . "component" "storage") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fintrack.selectorLabels" (dict "root" . "component" "storage") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: minio
+          image: {{ .Values.storage.image }}
+          args: ["server", "/data", "--console-address", ":9001"]
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fintrack.secretName" . }}
+                  key: STORAGE_ACCESS_KEY
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fintrack.secretName" . }}
+                  key: STORAGE_SECRET_KEY
+          ports:
+            - name: api
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              # MinIO's own readiness endpoint, which reports whether the object layer is
+              # initialised - not merely whether the port is open.
+              path: /minio/health/ready
+              port: api
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.storage.storageSize }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fintrack.fullname" . }}-storage
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9000
+      targetPort: api
+      name: api
+    - port: 9001
+      targetPort: console
+      name: console
+  selector:
+    {{- include "fintrack.selectorLabels" (dict "root" . "component" "storage") | nindent 4 }}
+{{- end }}

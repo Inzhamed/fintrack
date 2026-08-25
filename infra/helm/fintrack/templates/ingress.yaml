@@ -1,0 +1,52 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "fintrack.fullname" . }}
+  labels:
+    {{- include "fintrack.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.ingress.tls.enabled }}
+    # cert-manager watches this annotation and issues the certificate into tls.secretName,
+    # renewing it before expiry. Without it the secret has to be created and rotated by hand.
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.tls.issuer | quote }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          {{/*
+            /api and /ws are listed before / because path matching here is longest-prefix,
+            and routing both the app and the API through one host keeps the browser on a
+            single origin - so no CORS preflight, and the SPA can use relative URLs.
+          */}}
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "fintrack.fullname" . }}-api
+                port:
+                  number: {{ .Values.api.port }}
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "fintrack.fullname" . }}-api
+                port:
+                  number: {{ .Values.api.port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "fintrack.fullname" . }}-web
+                port:
+                  number: {{ .Values.web.port }}
+{{- end }}

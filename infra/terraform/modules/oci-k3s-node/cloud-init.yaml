@@ -1,0 +1,57 @@
+#cloud-config
+# Bootstraps the node into a single-node k3s cluster on first boot.
+#
+# Deliberately minimal: everything above the cluster is installed by Helm, so this file has
+# exactly one job and stays reviewable.
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - ca-certificates
+  # Oracle's Ubuntu images ship iptables rules that drop everything except SSH, regardless of
+  # what the cloud security list allows. Without opening 80 and 443 here, the ingress is
+  # unreachable and the cause is invisible from the console.
+  - iptables-persistent
+
+write_files:
+  - path: /etc/sysctl.d/99-k3s.conf
+    content: |
+      # Required for pod networking to work at all.
+      net.ipv4.ip_forward = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      # Kubernetes assumes swap is off; kubelet refuses to start otherwise.
+      vm.swappiness = 0
+
+runcmd:
+  # Open the ports the cluster serves on, and persist them across reboots.
+  - iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+  - iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+  - netfilter-persistent save
+
+  - sysctl --system
+  - swapoff -a
+  - sed -i '/ swap / s/^/#/' /etc/fstab
+
+  # k3s rather than full Kubernetes: one binary, a fraction of the memory, and conformant -
+  # so the manifests and the Helm chart are identical to any other cluster.
+  #
+  # Traefik ships with k3s and is what the Ingress targets. servicelb is disabled because a
+  # single node has no load balancer to provision, and leaving it enabled leaves Services of
+  # type LoadBalancer pending forever.
+  - >-
+    curl -sfL https://get.k3s.io |
+    INSTALL_K3S_EXEC="server --disable=servicelb --write-kubeconfig-mode=644" sh -
+
+  # Wait for the API to answer before anything downstream assumes a cluster exists.
+  - until kubectl get nodes >/dev/null 2>&1; do sleep 5; done
+
+  # cert-manager, so the ingress certificate is issued and renewed automatically. A manually
+  # created certificate expires in 90 days and takes the site down when it does.
+  - >-
+    kubectl apply -f
+    https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml
+  - kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=300s
+
+final_message: "k3s is up after $UPTIME seconds"

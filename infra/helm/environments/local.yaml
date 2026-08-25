@@ -1,0 +1,46 @@
+# Local k3d cluster.
+#
+# Everything runs in-cluster and nothing is exposed beyond the host, so the trade-offs here
+# are the opposite of production: convenience over durability, no TLS, tiny volumes.
+
+image:
+  # Images are built locally and side-loaded with `k3d image import`, so there is nothing to
+  # pull and no registry involved.
+  registry: docker.io
+  repository: library
+  tag: local
+  # Never: with Always, k3d would try to pull an image that only exists inside the node and
+  # the pod would sit in ErrImagePull forever.
+  pullPolicy: Never
+
+api:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      memory: 768Mi
+
+web:
+  replicaCount: 1
+
+ingress:
+  enabled: true
+  className: traefik      # k3d ships Traefik by default
+  host: fintrack.localhost
+  tls:
+    enabled: false
+
+postgres:
+  enabled: true
+  storage: 1Gi
+
+redis:
+  enabled: true
+
+storage:
+  enabled: true
+  storageSize: 2Gi
+  # The browser reaches MinIO through the host port k3d publishes, not the cluster service.
+  publicEndpoint: "http://localhost:9000"
