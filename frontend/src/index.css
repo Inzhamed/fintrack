@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/*
+ * Tailwind 4 takes its design tokens from CSS variables rather than a JS config file.
+ * These are the app's palette, spelled out once so a colour is never invented inline.
+ */
+@theme {
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+
+  --color-income: #16a34a;
+  --color-expense: #dc2626;
+  --color-warning: #f59e0b;
+}
+
+html {
+  /* Reserve the scrollbar gutter so content does not shift when a page grows past the fold. */
+  scrollbar-gutter: stable;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+/* A single focus treatment, applied everywhere, so keyboard navigation is always visible. */
+:focus-visible {
+  @apply outline-none ring-2 ring-brand-500 ring-offset-2;
+}

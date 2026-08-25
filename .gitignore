@@ -32,3 +32,6 @@ Thumbs.db
 logs/
 
 # Note: database migrations are source code and are deliberately NOT ignored.
+
+# Vite / frontend build cache
+.vite/

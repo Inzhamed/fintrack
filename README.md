@@ -5,9 +5,9 @@ dashboard over the result. Built as a depth project — the goal is production h
 (migrations, real error contracts, integration tests against real infrastructure), not
 feature count.
 
-**Status: Phase 1 in progress.** The backend is feature-complete for the MVP - auth,
-categories, transactions, budgets, analytics and CSV export, all tested end to end. The
-React frontend is what remains. See [docs/roadmap.md](docs/roadmap.md).
+**Status: Phase 1 complete.** A working full-stack app - sign in, record income and
+expenses, set monthly budgets, watch the dashboard, export to CSV. Phase 2 adds Redis,
+WebSocket budget alerts and bill reminders. See [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -20,9 +20,8 @@ React frontend is what remains. See [docs/roadmap.md](docs/roadmap.md).
 | Auth | JWT access tokens (jjwt), rotating opaque refresh tokens, BCrypt |
 | Docs | springdoc-openapi (Swagger UI) |
 | Tests | JUnit 5, AssertJ, MockMvc, Testcontainers |
-| Delivery | Docker multi-stage build, Docker Compose |
-
-Frontend (React + TypeScript + Tailwind) lands later in Phase 1.
+| Frontend | React 19, TypeScript, Vite 8, Tailwind 4, Redux Toolkit, TanStack Query, Recharts |
+| Delivery | Docker multi-stage builds, Docker Compose, nginx |
 
 ---
 
@@ -56,8 +55,16 @@ docker compose up -d db
 cd backend && ./mvnw spring-boot:run
 ```
 
+```bash
+cd frontend && npm install && npm run dev
+```
+
+The dev server proxies `/api` to the backend, so the browser stays on one origin and
+CORS never enters the picture.
+
 | What | Where |
 |---|---|
+| App | http://localhost:5173 |
 | API | http://localhost:8080/api/v1 |
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Health | http://localhost:8080/actuator/health |
@@ -214,9 +221,54 @@ a download can never disagree with what was on screen when the user clicked it.
 
 ---
 
+## Frontend notes
+
+**Redux holds client state; TanStack Query owns server state.** Who is signed in and which
+toasts are showing live in Redux. Transactions, budgets and analytics do not — Query
+already solves caching, refetching and invalidation, and mirroring server data into Redux
+means maintaining that machinery twice and keeping the two in sync by hand.
+
+**One refresh at a time, across every caller and every tab.** The API rotates refresh
+tokens and treats a replayed one as theft, revoking every session. So two concurrent
+refreshes are not a wasted request — the first succeeds, the second is rejected as reuse,
+and that rejection kills the token the first just issued. The client signs the user out by
+itself. This is not hypothetical: React StrictMode double-invokes effects, so the session
+restore fired twice on every page load and the second call replayed a spent token.
+Concurrent callers now collapse onto one promise, and a Web Lock serialises tabs — with the
+token read *inside* the lock, since a waiter using the token it captured before queuing
+would only reorder the reuse, not prevent it.
+
+**Access token in memory, refresh token in localStorage.** The access token is never
+persisted, so XSS cannot read it back, and it expires in fifteen minutes anyway. The
+refresh token in localStorage is a deliberate trade-off: the fix that actually closes the
+XSS hole is an httpOnly cookie, which needs a server change and belongs with the rest of
+the hardening in Phase 6. Keeping it in memory instead would sign the user out on every
+reload.
+
+**Filters live in the URL.** A filtered list can be bookmarked, shared and survives the
+back button. Any filter change resets the page number, since staying on page 3 of a result
+set that now has one page shows an empty table.
+
+**The dashboard is code-split.** Recharts is roughly half the bundle and only the dashboard
+charts anything, so it loads on demand — 423 kB initial instead of 785 kB, and the login
+page carries none of it.
+
+**Server-side validation messages land on the field that caused them.** The API returns
+field-keyed details on a 422; the transaction form maps them back onto the matching input,
+so a rule the client does not know about still appears next to the box that broke it.
+
+---
+
 ## Layout
 
 ```
+frontend/
+  src/
+    app/          store, routing shell, auth guard
+    components/   shared UI primitives
+    features/     auth, dashboard, transactions, budgets
+    lib/          api client, query hooks, types, formatting
+  Dockerfile, nginx.conf
 backend/
   src/main/java/com/fintrack/api/
     config/       Security, JWT properties

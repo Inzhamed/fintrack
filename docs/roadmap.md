@@ -3,7 +3,7 @@
 Every phase ends with something that runs and can be demonstrated. If work stops after
 any phase, what exists still stands on its own.
 
-## Phase 1 — MVP  *(in progress)*
+## Phase 1 — MVP  *(complete)*
 
 - [x] Flyway schema: users, refresh tokens, categories, transactions, budgets, budget items
 - [x] Seeded default categories (12 expense, 5 income)
@@ -17,7 +17,7 @@ any phase, what exists still stands on its own.
 - [x] Monthly budgets with per-category limits and progress tracking
 - [x] Analytics: summary, spend by category, monthly cashflow, composite dashboard
 - [x] CSV export (RFC 4180, UTF-8 BOM, formula-injection safe)
-- [ ] React + TypeScript + Tailwind frontend
+- [x] React + TypeScript + Tailwind frontend (Redux Toolkit, TanStack Query, Recharts)
 
 ## Phase 2 — Real-time and analytics
 

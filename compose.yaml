@@ -1,7 +1,10 @@
 # Local development stack.
 #
 #   docker compose up -d db      # just Postgres, run the API from your IDE / mvnw
-#   docker compose up --build    # the whole thing in containers
+#   docker compose up --build    # database, API and web, all in containers
+#
+# In production the frontend's nginx proxies /api to the API over the compose network,
+# so the browser only ever sees one origin and CORS never comes into it.
 #
 # Copy .env.example to .env first: DB_PASSWORD and JWT_SECRET have no defaults, and both
 # the database and the API refuse to start without them.
@@ -49,6 +52,23 @@ services:
       timeout: 5s
       retries: 12
       start_period: 40s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+    container_name: fintrack-web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-5173}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     restart: unless-stopped
 
 volumes:
