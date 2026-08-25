@@ -49,6 +49,13 @@ spring:
   cache:
     type: redis
 
+  servlet:
+    multipart:
+      # Slightly above the 5 MB the service enforces, so the service produces the
+      # error message rather than the container rejecting it with a bare 500.
+      max-file-size: 6MB
+      max-request-size: 6MB
+
   jackson:
     default-property-inclusion: non_null
     deserialization:
@@ -65,6 +72,16 @@ server:
       enabled: false
 
 fintrack:
+  storage:
+    enabled: ${STORAGE_ENABLED:true}
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    # Presigned URLs are signed against this, since the browser cannot resolve a
+    # container hostname and the signature covers the host.
+    public-endpoint: ${STORAGE_PUBLIC_ENDPOINT:http://localhost:9000}
+    bucket: ${STORAGE_BUCKET:fintrack-receipts}
+    access-key: ${STORAGE_ACCESS_KEY:fintrack}
+    secret-key: ${STORAGE_SECRET_KEY}
+
   cache:
     # Turned off in tests that assert on uncached behaviour.
     enabled: ${CACHE_ENABLED:true}

@@ -62,6 +62,22 @@ public class Transaction {
     @Column(name = "occurred_on", nullable = false)
     private LocalDate occurredOn;
 
+    /**
+     * The object key in storage, not the file itself. Images in Postgres would bloat every
+     * backup and replica with data written once and read rarely.
+     */
+    @Column(name = "receipt_key")
+    private String receiptKey;
+
+    @Column(name = "receipt_filename")
+    private String receiptFilename;
+
+    @Column(name = "receipt_content_type", length = 100)
+    private String receiptContentType;
+
+    @Column(name = "receipt_size_bytes")
+    private Long receiptSizeBytes;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

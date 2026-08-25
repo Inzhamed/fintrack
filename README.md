@@ -5,9 +5,10 @@ dashboard over the result. Built as a depth project — the goal is production h
 (migrations, real error contracts, integration tests against real infrastructure), not
 feature count.
 
-**Status: Phase 1 complete.** A working full-stack app - sign in, record income and
-expenses, set monthly budgets, watch the dashboard, export to CSV. Phase 2 adds Redis,
-WebSocket budget alerts and bill reminders. See [docs/roadmap.md](docs/roadmap.md).
+**Status: Phase 2 complete.** A working full-stack app - sign in, record income and
+expenses, attach receipts, set monthly budgets and get warned live when you approach one,
+track recurring bills, watch the dashboard, export to CSV. Phase 3 is testing depth and
+CI/CD. See [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -17,6 +18,9 @@ WebSocket budget alerts and bill reminders. See [docs/roadmap.md](docs/roadmap.m
 |---|---|
 | API | Java 21, Spring Boot 4.0, Spring Web MVC, Spring Data JPA, Spring Security 7 |
 | Database | PostgreSQL 16, Flyway migrations |
+| Cache & limits | Redis (Lettuce), Spring Cache |
+| Real-time | STOMP over WebSocket |
+| Storage | S3-compatible (MinIO locally), AWS SDK v2 |
 | Auth | JWT access tokens (jjwt), rotating opaque refresh tokens, BCrypt |
 | Docs | springdoc-openapi (Swagger UI) |
 | Tests | JUnit 5, AssertJ, MockMvc, Testcontainers |
@@ -82,9 +86,9 @@ run in `verify` and start a real PostgreSQL 16 through Testcontainers, applying 
 Flyway migrations — so the suite catches SQL that an in-memory database would have
 accepted. Docker must be running for that half.
 
-Currently 52 tests: 8 on JWT issuing and verification, 11 on the auth flow, 11 on
-transactions and categories, 10 on budget progress, 11 on analytics, 9 on CSV export,
-plus a context-load check.
+Currently 97 tests. Testcontainers starts a real PostgreSQL, a real Redis and a real
+MinIO, so caching, rate limiting and object storage are exercised against the actual
+servers rather than mocks. Eight of them drive a real WebSocket against a running app.
 
 ---
 
@@ -109,6 +113,11 @@ ones marked public.
 | GET | `/dashboard` | the whole landing screen in one call |
 | GET | `/analytics/summary` `/analytics/by-category` `/analytics/cashflow` | range defaults to the current month |
 | GET | `/transactions/export` | CSV; takes the same filters as the list |
+| POST · GET · DELETE | `/transactions/{id}/receipt` | upload, presigned link, remove |
+| GET · POST · PATCH · DELETE | `/bills` `/bills/{id}` | recurring payments |
+| GET | `/notifications` | feed plus unread count |
+| POST | `/notifications/{id}/read` `/notifications/read-all` | |
+| WS | `/ws` → `/user/queue/notifications` | STOMP; token on the CONNECT frame |
 
 Transaction filters combine with AND: `from`, `to`, `type`, `categoryId`,
 `uncategorised`, `minAmount`, `maxAmount`, `search` (description or merchant,
@@ -218,6 +227,35 @@ and uses CRLF and RFC 4180 quoting.
 
 **The export reuses the list endpoint's Specifications.** Same filters, same predicates, so
 a download can never disagree with what was on screen when the user clicked it.
+
+**Cache keys carry the user id.** A key of `summary::2026-08-01` would serve one user's
+totals to the next caller asking for the same range. Eviction on write is per user too, via
+a SCAN over that user's prefix — `@CacheEvict(allEntries)` would discard everyone else's
+entries on every write and turn the cache into a miss generator.
+
+**Rate limiting counts attempts, not failures.** Letting a correct password through after
+the limit would leave the endpoint usable as a fast oracle for "was this guess right?".
+Buckets are per path, so exhausting registration cannot lock someone out of an account they
+already have, and a successful login clears the counter.
+
+**Budget alerts fire on a transition, not a state.** Alerting whenever spend is over the
+line means every later purchase in an already-breached category fires again — the user is
+told once and then nagged for the rest of the month.
+
+**Notifications are persisted, not just pushed.** A WebSocket message reaches whoever is
+connected at that instant. Anyone closed or asleep would otherwise never learn of it, so the
+row is the record and the socket is the fast path on top.
+
+**The bill scan runs hourly and is idempotent.** A daily job that is down at its appointed
+minute skips the day. Hourly is safe because each bill records the due date it was last
+reminded for, so re-runs and catch-ups still produce one reminder per occurrence.
+
+**Receipts upload through the API and download by presigned URL.** Uploads are rare, small,
+and the one place untrusted bytes enter the system, so they are worth proxying to validate.
+The type is detected from the file's own magic bytes — the `Content-Type` header is
+client-supplied and a caller can claim `image/png` for an executable. Downloads are frequent
+and gain nothing from streaming through the app, so the client gets a link signed for one
+object for ten minutes. The bucket is never public: an unguessable key is not access control.
 
 ---
 

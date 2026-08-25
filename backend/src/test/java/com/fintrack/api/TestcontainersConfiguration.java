@@ -2,6 +2,7 @@ package com.fintrack.api;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -41,5 +42,37 @@ class TestcontainersConfiguration {
                 // Waiting on the log line rather than just the port means the first test does
                 // not race a server that is listening but not yet ready to answer.
                 .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*", 1));
+    }
+
+    /**
+     * MinIO, so receipt handling is exercised against a real S3 API rather than a mock.
+     * <p>
+     * Not a {@code @ServiceConnection}: Spring Boot has no connection-details contract for a
+     * generic S3 endpoint, so the properties are registered explicitly once the container has
+     * a mapped port.
+     */
+    @Bean
+    GenericContainer<?> minioContainer() {
+        return new GenericContainer<>(DockerImageName.parse("minio/minio:latest"))
+                .withExposedPorts(9000)
+                .withEnv("MINIO_ROOT_USER", "testaccess")
+                .withEnv("MINIO_ROOT_PASSWORD", "testsecret")
+                .withCommand("server", "/data")
+                .waitingFor(Wait.forListeningPort());
+    }
+
+    @Bean
+    DynamicPropertyRegistrar minioProperties(GenericContainer<?> minioContainer) {
+        return registry -> {
+            String endpoint = "http://%s:%d".formatted(
+                    minioContainer.getHost(), minioContainer.getMappedPort(9000));
+            registry.add("fintrack.storage.endpoint", () -> endpoint);
+            // Same host in tests: there is no container network to bridge, so the signing
+            // endpoint and the reachable endpoint are one and the same.
+            registry.add("fintrack.storage.public-endpoint", () -> endpoint);
+            registry.add("fintrack.storage.access-key", () -> "testaccess");
+            registry.add("fintrack.storage.secret-key", () -> "testsecret");
+            registry.add("fintrack.storage.bucket", () -> "test-receipts");
+        };
     }
 }

@@ -3,10 +3,12 @@ package com.fintrack.api.controller;
 import com.fintrack.api.dto.common.PageResponse;
 import com.fintrack.api.dto.transaction.CreateTransactionRequest;
 import com.fintrack.api.dto.transaction.TransactionFilter;
+import com.fintrack.api.dto.transaction.ReceiptResponse;
 import com.fintrack.api.dto.transaction.TransactionResponse;
 import com.fintrack.api.dto.transaction.UpdateTransactionRequest;
 import com.fintrack.api.security.AuthenticatedUser;
 import com.fintrack.api.service.CsvExportService;
+import com.fintrack.api.service.ReceiptService;
 import com.fintrack.api.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +25,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -35,6 +38,7 @@ public class TransactionController {
 
     private final TransactionService transactionService;
     private final CsvExportService csvExportService;
+    private final ReceiptService receiptService;
 
     @GetMapping
     @Operation(summary = "List transactions",
@@ -93,6 +97,34 @@ public class TransactionController {
                                       @PathVariable UUID id,
                                       @Valid @RequestBody UpdateTransactionRequest request) {
         return transactionService.update(principal.id(), id, request);
+    }
+
+    @PostMapping(value = "/{id}/receipt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Attach a receipt to a transaction",
+            description = "JPEG, PNG, WebP or PDF, up to 5 MB. The type is detected from the "
+                    + "file's own bytes, not the Content-Type header. Uploading again replaces "
+                    + "the previous receipt.")
+    public ReceiptResponse uploadReceipt(@AuthenticationPrincipal AuthenticatedUser principal,
+                                         @PathVariable UUID id,
+                                         @RequestParam("file") MultipartFile file) {
+        return receiptService.upload(principal.id(), id, file);
+    }
+
+    @GetMapping("/{id}/receipt")
+    @Operation(summary = "Get a short-lived link to the receipt",
+            description = "Returns a presigned URL valid for ten minutes. The bucket itself is "
+                    + "private; a receipt is a financial document and is never publicly readable.")
+    public ReceiptResponse getReceipt(@AuthenticationPrincipal AuthenticatedUser principal,
+                                      @PathVariable UUID id) {
+        return receiptService.get(principal.id(), id);
+    }
+
+    @DeleteMapping("/{id}/receipt")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Remove the receipt, keeping the transaction")
+    public void deleteReceipt(@AuthenticationPrincipal AuthenticatedUser principal,
+                              @PathVariable UUID id) {
+        receiptService.delete(principal.id(), id);
     }
 
     @DeleteMapping("/{id}")

@@ -21,6 +21,7 @@ public record TransactionResponse(
         String merchant,
         LocalDate occurredOn,
         CategorySummary category,
+        boolean hasReceipt,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -39,6 +40,7 @@ public record TransactionResponse(
                 category == null ? null : new CategorySummary(
                         category.getId(), category.getName(),
                         category.getColor(), category.getIcon()),
+                transaction.getReceiptKey() != null,
                 transaction.getCreatedAt(),
                 transaction.getUpdatedAt());
     }
