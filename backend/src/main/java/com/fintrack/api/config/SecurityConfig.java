@@ -52,7 +52,12 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/actuator/health",
             "/actuator/health/**",
-            "/actuator/info"
+            "/actuator/info",
+            // The handshake only opens the socket. A browser cannot set an Authorization
+            // header on it, so the token arrives on the STOMP CONNECT frame instead and is
+            // verified by StompAuthChannelInterceptor, which refuses the connection
+            // outright if it is missing or invalid.
+            "/ws/**"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

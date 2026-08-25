@@ -6,9 +6,13 @@ import com.fintrack.api.dto.transaction.TransactionFilter;
 import com.fintrack.api.dto.transaction.TransactionResponse;
 import com.fintrack.api.dto.transaction.UpdateTransactionRequest;
 import com.fintrack.api.exception.ApiException;
+import com.fintrack.api.model.Budget;
+import com.fintrack.api.model.BudgetItem;
 import com.fintrack.api.model.Category;
+import com.fintrack.api.model.EntryType;
 import com.fintrack.api.model.Transaction;
 import com.fintrack.api.model.User;
+import com.fintrack.api.repository.BudgetRepository;
 import com.fintrack.api.repository.TransactionRepository;
 import com.fintrack.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,11 +22,13 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.fintrack.api.repository.TransactionSpecifications.*;
@@ -34,7 +40,9 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final CategoryService categoryService;
     private final UserRepository userRepository;
+    private final BudgetRepository budgetRepository;
     private final CacheInvalidator cacheInvalidator;
+    private final NotificationService notificationService;
 
     /**
      * Filtered, paginated list, newest first by default.
@@ -107,6 +115,7 @@ public class TransactionService {
         // response is built; plain save() defers the insert and returns null timestamps.
         Transaction saved = transactionRepository.saveAndFlush(transaction);
         cacheInvalidator.evictAnalyticsFor(userId);
+        alertIfBudgetCrossed(user, saved);
         return TransactionResponse.from(saved);
     }
 
@@ -155,6 +164,44 @@ public class TransactionService {
     public void delete(UUID userId, UUID transactionId) {
         transactionRepository.delete(ownedOrFail(userId, transactionId));
         cacheInvalidator.evictAnalyticsFor(userId);
+    }
+
+
+    /**
+     * Pushes a budget alert if this transaction is what took the category past its threshold.
+     * <p>
+     * Only expenses can breach a budget, and only ones filed under a category the user has
+     * actually budgeted for in the month the transaction falls in.
+     */
+    private void alertIfBudgetCrossed(User user, Transaction transaction) {
+        if (transaction.getType() != EntryType.EXPENSE || transaction.getCategory() == null) {
+            return;
+        }
+
+        LocalDate occurredOn = transaction.getOccurredOn();
+        Optional<Budget> budget = budgetRepository.findByPeriod(
+                user.getId(), occurredOn.getYear(), occurredOn.getMonthValue());
+        if (budget.isEmpty()) {
+            return;
+        }
+
+        UUID categoryId = transaction.getCategory().getId();
+        Optional<BudgetItem> item = budget.get().getItems().stream()
+                .filter(candidate -> candidate.getCategory().getId().equals(categoryId))
+                .findFirst();
+        if (item.isEmpty()) {
+            return;
+        }
+
+        BigDecimal spentAfter = transactionRepository.sumSpentOnCategory(
+                user.getId(), categoryId, budget.get().periodStart(), budget.get().periodEnd());
+        // Derived rather than queried again: this transaction is already flushed, so the sum
+        // includes it, and subtracting its amount gives the figure from a moment ago without
+        // a second round trip or a race against a concurrent write.
+        BigDecimal spentBefore = spentAfter.subtract(transaction.getAmount());
+
+        notificationService.notifyIfThresholdCrossed(
+                user.getId(), item.get(), budget.get().getCurrency(), spentBefore, spentAfter);
     }
 
     private Transaction ownedOrFail(UUID userId, UUID transactionId) {
