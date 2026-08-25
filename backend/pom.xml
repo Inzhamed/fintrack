@@ -22,6 +22,11 @@
 		<java.version>21</java.version>
 		<jjwt.version>0.12.6</jjwt.version>
 		<awssdk.version>2.46.7</awssdk.version>
+		<jacoco.version>0.8.13</jacoco.version>
+		<!-- Set from the measured figure and ratcheted upward, never aspirational:
+		     a gate above what the suite achieves fails every build and gets disabled. -->
+		<coverage.instruction.minimum>0.80</coverage.instruction.minimum>
+		<coverage.branch.minimum>0.65</coverage.branch.minimum>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -222,6 +227,91 @@
 						</goals>
 					</execution>
 				</executions>
+			</plugin>
+			<!--
+				Coverage across both suites. Unit and integration runs write separate exec
+				files, which are merged before reporting - counting only one would badly
+				understate a codebase whose controllers and repositories are covered almost
+				entirely by integration tests.
+			-->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco.version}</version>
+				<executions>
+					<execution>
+						<id>prepare-unit</id>
+						<goals><goal>prepare-agent</goal></goals>
+						<configuration>
+							<destFile>${project.build.directory}/jacoco-unit.exec</destFile>
+						</configuration>
+					</execution>
+					<execution>
+						<id>prepare-integration</id>
+						<goals><goal>prepare-agent-integration</goal></goals>
+						<configuration>
+							<destFile>${project.build.directory}/jacoco-it.exec</destFile>
+						</configuration>
+					</execution>
+					<execution>
+						<id>merge</id>
+						<phase>post-integration-test</phase>
+						<goals><goal>merge</goal></goals>
+						<configuration>
+							<fileSets>
+								<fileSet>
+									<directory>${project.build.directory}</directory>
+									<includes><include>jacoco-*.exec</include></includes>
+								</fileSet>
+							</fileSets>
+							<destFile>${project.build.directory}/jacoco-merged.exec</destFile>
+						</configuration>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>post-integration-test</phase>
+						<goals><goal>report</goal></goals>
+						<configuration>
+							<dataFile>${project.build.directory}/jacoco-merged.exec</dataFile>
+							<outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>check</id>
+						<phase>verify</phase>
+						<goals><goal>check</goal></goals>
+						<configuration>
+							<dataFile>${project.build.directory}/jacoco-merged.exec</dataFile>
+							<rules>
+								<rule>
+									<element>BUNDLE</element>
+									<limits>
+										<limit>
+											<counter>INSTRUCTION</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>${coverage.instruction.minimum}</minimum>
+										</limit>
+										<limit>
+											<counter>BRANCH</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>${coverage.branch.minimum}</minimum>
+										</limit>
+									</limits>
+								</rule>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+				<configuration>
+					<excludes>
+						<!-- Generated or trivially declarative: counting them inflates the number
+						     without saying anything about how well the code is tested. -->
+						<exclude>**/ApiApplication.class</exclude>
+						<exclude>**/dto/**</exclude>
+						<exclude>**/model/**</exclude>
+						<exclude>**/config/**Properties.class</exclude>
+					</excludes>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

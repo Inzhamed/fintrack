@@ -5,10 +5,10 @@ dashboard over the result. Built as a depth project — the goal is production h
 (migrations, real error contracts, integration tests against real infrastructure), not
 feature count.
 
-**Status: Phase 2 complete.** A working full-stack app - sign in, record income and
+**Status: Phase 3 complete.** A working full-stack app - sign in, record income and
 expenses, attach receipts, set monthly budgets and get warned live when you approach one,
-track recurring bills, watch the dashboard, export to CSV. Phase 3 is testing depth and
-CI/CD. See [docs/roadmap.md](docs/roadmap.md).
+track recurring bills, watch the dashboard, export to CSV. Phase 4 is Kubernetes and
+Terraform. See [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -86,9 +86,32 @@ run in `verify` and start a real PostgreSQL 16 through Testcontainers, applying 
 Flyway migrations — so the suite catches SQL that an in-memory database would have
 accepted. Docker must be running for that half.
 
-Currently 97 tests. Testcontainers starts a real PostgreSQL, a real Redis and a real
-MinIO, so caching, rate limiting and object storage are exercised against the actual
-servers rather than mocks. Eight of them drive a real WebSocket against a running app.
+Three layers, 145 tests in total:
+
+| Layer | Count | Command |
+|---|---|---|
+| Backend unit + integration | 111 | `cd backend && ./mvnw verify` |
+| Frontend unit | 25 | `cd frontend && npm test` |
+| End-to-end | 9 | `cd frontend && npm run e2e` |
+
+Testcontainers starts a real PostgreSQL, Redis and MinIO, so caching, rate limiting and
+object storage are exercised against the actual servers rather than mocks. Eight backend
+tests drive a real WebSocket against a running app.
+
+Coverage is gated at 80% instruction and 65% branch, measured across both backend suites
+merged — counting only one would badly understate a codebase whose controllers and
+repositories are covered almost entirely by integration tests. It currently sits at 85.6%
+and 72.1%. The gate is set from the measured figure and ratcheted upward, never
+aspirational: a threshold above what the suite achieves fails every build and gets
+switched off.
+
+**Running the E2E suite** needs the API up, and its rate limits raised — the suite drives
+dozens of sign-ins from one address in under a minute and would otherwise be throttled by
+the very protection it exists to test around:
+
+```bash
+cd backend && RATELIMIT_REGISTER_LIMIT=1000 RATELIMIT_LOGIN_LIMIT=1000 ./mvnw spring-boot:run
+```
 
 ---
 

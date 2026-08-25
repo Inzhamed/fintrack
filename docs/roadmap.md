@@ -27,10 +27,18 @@ any phase, what exists still stands on its own.
 - [x] Bills and reminders on a scheduler, with a persisted notification feed
 - [x] Receipt upload to S3-compatible storage (MinIO), served by presigned URL
 
-## Phase 3 — Testing and CI/CD
+## Phase 3 — Testing and CI/CD  *(complete, pending a remote)*
 
-Coverage gates, Playwright E2E, GitHub Actions matrix pipeline, GHCR image publishing,
-Trivy scanning, Dependabot.
+- [x] JaCoCo coverage across both suites, gated at 80% instruction / 65% branch
+- [x] Frontend unit tests (Vitest), 25 covering the api client and formatting
+- [x] Playwright E2E, 9 journeys against the real stack including the live alert
+- [x] GitHub Actions: backend, frontend and E2E jobs
+- [x] Security workflow: Trivy image scanning and CodeQL
+- [x] Release workflow: GHCR publishing with build provenance
+- [x] Dependabot, grouped so updates do not arrive as unreadable PR noise
+
+The workflows are written and their YAML validated, but they have never executed - the
+repository has no remote yet. Treat them as unproven until a first run goes green.
 
 ## Phase 4 — Kubernetes and Terraform
 

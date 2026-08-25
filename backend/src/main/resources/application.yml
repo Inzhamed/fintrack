@@ -94,6 +94,16 @@ fintrack:
       issuer: fintrack
       access-token-ttl: PT15M      # Short-lived: a stolen access token expires fast.
       refresh-token-ttl: P30D      # Long-lived but revocable, hashed, and rotated on use.
+    ratelimit:
+      # Production defaults. Raised by the E2E profile, which drives dozens of sign-ins
+      # from one address in under a minute.
+      login:
+        limit: ${RATELIMIT_LOGIN_LIMIT:10}
+        window: ${RATELIMIT_LOGIN_WINDOW:PT15M}
+      register:
+        limit: ${RATELIMIT_REGISTER_LIMIT:5}
+        window: ${RATELIMIT_REGISTER_WINDOW:PT1H}
+
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 

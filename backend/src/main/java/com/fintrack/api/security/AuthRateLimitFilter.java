@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
@@ -39,13 +40,26 @@ import java.util.Set;
 @Slf4j
 public class AuthRateLimitFilter extends OncePerRequestFilter {
 
-    /** Generous enough for a person who forgot their password, tight enough to matter. */
-    private static final int LOGIN_LIMIT = 10;
-    private static final Duration LOGIN_WINDOW = Duration.ofMinutes(15);
+    /**
+     * Limits are configurable rather than constants.
+     * <p>
+     * The defaults are the production values - generous enough for someone who forgot their
+     * password, tight enough to slow credential stuffing. They are overridable because an
+     * end-to-end suite runs dozens of sign-ins from one address in a minute and would
+     * otherwise be throttled by the very protection it is meant to be testing around.
+     */
+    @Value("${fintrack.security.ratelimit.login.limit:10}")
+    private int loginLimit;
+
+    @Value("${fintrack.security.ratelimit.login.window:PT15M}")
+    private Duration loginWindow;
 
     /** Account creation is rarer and more costly to abuse, so it is tighter. */
-    private static final int REGISTER_LIMIT = 5;
-    private static final Duration REGISTER_WINDOW = Duration.ofHours(1);
+    @Value("${fintrack.security.ratelimit.register.limit:5}")
+    private int registerLimit;
+
+    @Value("${fintrack.security.ratelimit.register.window:PT1H}")
+    private Duration registerWindow;
 
     private static final Set<String> LOGIN_PATHS =
             Set.of("/api/v1/auth/login", "/api/v1/auth/refresh");
@@ -68,8 +82,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         boolean isRegister = REGISTER_PATH.equals(path);
 
-        int limit = isRegister ? REGISTER_LIMIT : LOGIN_LIMIT;
-        Duration window = isRegister ? REGISTER_WINDOW : LOGIN_WINDOW;
+        int limit = isRegister ? registerLimit : loginLimit;
+        Duration window = isRegister ? registerWindow : loginWindow;
 
         // The bucket includes the path, so exhausting the register quota does not also lock
         // the caller out of signing in to an account they already have.

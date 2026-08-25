@@ -1,0 +1,38 @@
+version: 2
+
+updates:
+  # Grouped rather than one PR per dependency: a stream of single-package PRs gets ignored,
+  # which is the failure mode that leaves a project unpatched despite having Dependabot on.
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      spring:
+        patterns: ['org.springframework*']
+      test-tooling:
+        patterns: ['org.junit*', 'org.testcontainers*', 'org.assertj*', 'org.mockito*']
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      react:
+        patterns: ['react', 'react-dom', '@types/react*']
+      tooling:
+        patterns: ['vite', '@vitejs/*', 'typescript', 'vitest', '@vitest/*', 'oxlint']
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # The actions themselves pin to a version and go stale like anything else.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

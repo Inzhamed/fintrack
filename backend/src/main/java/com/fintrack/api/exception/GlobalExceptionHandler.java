@@ -13,10 +13,13 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
@@ -116,6 +119,51 @@ public class GlobalExceptionHandler {
                 "Parameter has an invalid value: " + ex.getName(),
                 Map.of("parameter", ex.getName()),
                 request);
+    }
+
+    /**
+     * The right path, the wrong verb.
+     * <p>
+     * Without this the exception reaches the catch-all and the caller is told the server
+     * failed - a 500 for what is entirely a client mistake, and one that sends people looking
+     * for an outage that is not there.
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError.Envelope> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+
+        Map<String, Object> details = ex.getSupportedHttpMethods() == null ? Map.of()
+                : Map.of("supported", ex.getSupportedHttpMethods().stream().map(Object::toString).toList());
+
+        return respond(ErrorCode.METHOD_NOT_ALLOWED,
+                "%s is not supported on this endpoint".formatted(ex.getMethod()), details, request);
+    }
+
+    /** A body the endpoint cannot consume - typically a missing or wrong Content-Type. */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError.Envelope> handleUnsupportedMediaType(
+            HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+
+        return respond(ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+                "This endpoint does not accept that content type",
+                Map.of("supported", ex.getSupportedMediaTypes().stream().map(Object::toString).toList()),
+                request);
+    }
+
+    /**
+     * An upload past the container's multipart limit.
+     * <p>
+     * Thrown before the request ever reaches a controller, so the receipt service's own size
+     * check never sees it. 413 with a clear message beats the bare 500 the container would
+     * otherwise produce.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError.Envelope> handleUploadTooLarge(
+            MaxUploadSizeExceededException ex, HttpServletRequest request) {
+
+        return respond(ErrorCode.PAYLOAD_TOO_LARGE,
+                "That file is too large. Receipts must be 5 MB or smaller.",
+                Map.of(), request);
     }
 
     @ExceptionHandler(AuthenticationException.class)
