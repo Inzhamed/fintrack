@@ -9,7 +9,10 @@ import com.fintrack.api.model.Budget;
 import com.fintrack.api.model.EntryType;
 import com.fintrack.api.model.User;
 import com.fintrack.api.repository.*;
+import com.fintrack.api.config.CacheConfig;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,16 +38,27 @@ public class AnalyticsService {
     /** Cap on the reporting window, so one request cannot ask the database to scan a decade. */
     private static final long MAX_RANGE_DAYS = 366L * 5;
 
+    /**
+     * Self-reference, so internal calls pass through the caching proxy rather than
+     * bypassing it. {@code @Lazy} breaks what would otherwise be a circular dependency on
+     * itself; lombok.config copies the annotation onto the generated constructor parameter.
+     */
+    @Lazy
+    private final AnalyticsService self;
+
     private final TransactionRepository transactionRepository;
     private final BudgetRepository budgetRepository;
     private final UserRepository userRepository;
 
+    @Cacheable(cacheNames = CacheConfig.SUMMARY, key = "#userId + ':' + #from + ':' + #to")
     @Transactional(readOnly = true)
     public SummaryResponse summary(UUID userId, LocalDate from, LocalDate to) {
         Range range = Range.of(from, to);
         return summaryFor(userId, range.from(), range.to(), currencyOf(userId));
     }
 
+    @Cacheable(cacheNames = CacheConfig.BY_CATEGORY,
+            key = "#userId + ':' + #from + ':' + #to + ':' + #type")
     @Transactional(readOnly = true)
     public CategoryBreakdownResponse byCategory(UUID userId, LocalDate from, LocalDate to,
                                                 EntryType type) {
@@ -73,6 +87,7 @@ public class AnalyticsService {
         return new CategoryBreakdownResponse(range.from(), range.to(), direction, total, slices);
     }
 
+    @Cacheable(cacheNames = CacheConfig.CASHFLOW, key = "#userId + ':' + #from + ':' + #to")
     @Transactional(readOnly = true)
     public CashflowResponse cashflow(UUID userId, LocalDate from, LocalDate to) {
         Range range = Range.of(from, to);
@@ -94,7 +109,10 @@ public class AnalyticsService {
         SummaryResponse previous = summaryFor(
                 userId, lastMonth.atDay(1), lastMonth.atEndOfMonth(), currency);
 
-        CategoryBreakdownResponse categories = byCategory(
+        // Through the proxy, not `this`: a direct call bypasses the cache interceptor
+        // entirely, so the dashboard would recompute what /analytics/by-category has
+        // already cached, and the two could disagree within the same second.
+        CategoryBreakdownResponse categories = self.byCategory(
                 userId, thisMonth.atDay(1), thisMonth.atEndOfMonth(), EntryType.EXPENSE);
 
         CashflowResponse cashflow = cashflowFor(

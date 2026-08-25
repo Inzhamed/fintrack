@@ -19,10 +19,13 @@ any phase, what exists still stands on its own.
 - [x] CSV export (RFC 4180, UTF-8 BOM, formula-injection safe)
 - [x] React + TypeScript + Tailwind frontend (Redux Toolkit, TanStack Query, Recharts)
 
-## Phase 2 — Real-time and analytics
+## Phase 2 — Real-time and analytics  *(in progress)*
 
-Redis caching and login rate limiting, WebSocket budget-threshold alerts, analytics
-endpoints, bills and reminders on a scheduler, receipt upload to S3-compatible storage.
+- [x] Redis caching for analytics, evicted per user on write
+- [x] Redis-backed rate limiting on the unauthenticated auth endpoints
+- [ ] WebSocket budget-threshold alerts
+- [ ] Bills and reminders on a scheduler
+- [ ] Receipt upload to S3-compatible storage
 
 ## Phase 3 — Testing and CI/CD
 

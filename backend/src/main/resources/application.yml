@@ -31,6 +31,24 @@ spring:
     # This project starts from an empty database, so baselining is never needed.
     baseline-on-migrate: false
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # Fail fast rather than hanging a request thread on an unreachable cache. Both the
+      # cache and the rate limiter degrade gracefully when Redis is down.
+      timeout: 2s
+      connect-timeout: 2s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+
+  cache:
+    type: redis
+
   jackson:
     default-property-inclusion: non_null
     deserialization:
@@ -47,6 +65,10 @@ server:
       enabled: false
 
 fintrack:
+  cache:
+    # Turned off in tests that assert on uncached behaviour.
+    enabled: ${CACHE_ENABLED:true}
+
   security:
     jwt:
       # HS256 signing key, base64-encoded, minimum 256 bits. Generate with:

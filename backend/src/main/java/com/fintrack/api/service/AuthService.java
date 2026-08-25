@@ -11,6 +11,7 @@ import com.fintrack.api.model.User;
 import com.fintrack.api.repository.UserRepository;
 import com.fintrack.api.security.AuthenticatedUser;
 import com.fintrack.api.security.JwtService;
+import com.fintrack.api.security.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -34,6 +35,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final RateLimiter rateLimiter;
 
     /**
      * Creates an account and signs it straight in, so the client does not have to make a
@@ -86,6 +88,9 @@ public class AuthService {
                             "Invalid email or password"));
 
             log.info("User {} signed in", user.getId());
+            // A correct password clears the counter, so someone who mistypes twice and
+            // then succeeds does not carry those failures into their next session.
+            rateLimiter.reset("/api/v1/auth/login:" + ip);
             return issueTokens(user, userAgent, ip);
 
         } catch (AuthenticationException ex) {

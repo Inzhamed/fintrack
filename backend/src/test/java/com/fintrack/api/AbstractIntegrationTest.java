@@ -10,6 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -42,6 +44,7 @@ abstract class AbstractIntegrationTest {
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private RefreshTokenRepository refreshTokenRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private StringRedisTemplate redisTemplate;
 
     @BeforeEach
     void wipe() {
@@ -55,6 +58,15 @@ abstract class AbstractIntegrationTest {
                 categoryRepository.findAll().stream().filter(c -> !c.isGlobal()).toList());
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
+
+        // Redis carries rate-limit counters and cached analytics across tests. Every test
+        // registers from the same loopback address, so without this the register quota is
+        // exhausted a few tests in and the rest fail with 429 - and a cached aggregate
+        // from one test could answer the next.
+        redisTemplate.execute((RedisConnection connection) -> {
+            connection.serverCommands().flushDb();
+            return null;
+        });
     }
 
     /** Registers a user and returns their access token. */

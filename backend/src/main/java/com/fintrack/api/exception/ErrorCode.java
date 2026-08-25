@@ -21,6 +21,7 @@ public enum ErrorCode {
     EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT),
     DUPLICATE_RESOURCE(HttpStatus.CONFLICT),
     CONFLICT(HttpStatus.CONFLICT),
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;

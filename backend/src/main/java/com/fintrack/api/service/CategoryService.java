@@ -32,6 +32,7 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
+    private final CacheInvalidator cacheInvalidator;
 
     /** Globals first, then the user's own, each alphabetically. */
     @Transactional(readOnly = true)
@@ -90,6 +91,7 @@ public class CategoryService {
             category.setIcon(request.icon());
         }
 
+        cacheInvalidator.evictAnalyticsFor(userId);
         return CategoryResponse.from(category);
     }
 
@@ -112,6 +114,7 @@ public class CategoryService {
         }
 
         categoryRepository.delete(category);
+        cacheInvalidator.evictAnalyticsFor(userId);
     }
 
     /**

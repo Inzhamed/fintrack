@@ -29,6 +29,20 @@ services:
       retries: 10
       start_period: 10s
 
+  redis:
+    image: redis:7-alpine
+    container_name: fintrack-redis
+    # No persistence: everything Redis holds here is a cache or a rate-limit counter, both
+    # of which are safe to lose. Persisting them would only slow restarts down.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build:
       context: ./backend
@@ -36,11 +50,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       # Inside the network the database is reachable by service name, not localhost.
       DATABASE_URL: jdbc:postgresql://db:5432/${DB_NAME:-fintrack}
       DB_USER: ${DB_USER:-fintrack}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required - see .env.example}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       SERVER_PORT: 8080

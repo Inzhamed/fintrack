@@ -34,6 +34,7 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final CategoryService categoryService;
     private final UserRepository userRepository;
+    private final CacheInvalidator cacheInvalidator;
 
     /**
      * Filtered, paginated list, newest first by default.
@@ -104,7 +105,9 @@ public class TransactionService {
 
         // saveAndFlush so @CreationTimestamp/@UpdateTimestamp are populated before the
         // response is built; plain save() defers the insert and returns null timestamps.
-        return TransactionResponse.from(transactionRepository.saveAndFlush(transaction));
+        Transaction saved = transactionRepository.saveAndFlush(transaction);
+        cacheInvalidator.evictAnalyticsFor(userId);
+        return TransactionResponse.from(saved);
     }
 
     /** Partial update. A null field means "leave unchanged". */
@@ -144,12 +147,14 @@ public class TransactionService {
             transaction.setOccurredOn(request.occurredOn());
         }
 
+        cacheInvalidator.evictAnalyticsFor(userId);
         return TransactionResponse.from(transaction);
     }
 
     @Transactional
     public void delete(UUID userId, UUID transactionId) {
         transactionRepository.delete(ownedOrFail(userId, transactionId));
+        cacheInvalidator.evictAnalyticsFor(userId);
     }
 
     private Transaction ownedOrFail(UUID userId, UUID transactionId) {
