@@ -33,6 +33,11 @@ export function setAccessToken(token: string | null) {
   accessToken = token
 }
 
+/** Read by the WebSocket client, which authenticates on its own CONNECT frame. */
+export function getAccessToken(): string | null {
+  return accessToken
+}
+
 export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY)
 }

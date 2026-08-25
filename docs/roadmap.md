@@ -23,7 +23,7 @@ any phase, what exists still stands on its own.
 
 - [x] Redis caching for analytics, evicted per user on write
 - [x] Redis-backed rate limiting on the unauthenticated auth endpoints
-- [ ] WebSocket budget-threshold alerts
+- [x] WebSocket budget-threshold alerts, surfaced live in the UI
 - [ ] Bills and reminders on a scheduler
 - [ ] Receipt upload to S3-compatible storage
 

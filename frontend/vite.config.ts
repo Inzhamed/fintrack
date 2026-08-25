@@ -18,6 +18,12 @@ export default defineConfig({
         target: process.env.VITE_API_TARGET ?? 'http://localhost:8080',
         changeOrigin: true,
       },
+      // ws: true, or the dev server answers the upgrade itself instead of forwarding it.
+      '/ws': {
+        target: process.env.VITE_API_TARGET ?? 'http://localhost:8080',
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 })

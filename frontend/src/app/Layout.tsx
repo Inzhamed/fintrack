@@ -2,9 +2,11 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from './store'
 import { logout } from '../features/auth/authSlice'
-import { dismissToast } from './uiSlice'
+import { useQueryClient } from '@tanstack/react-query'
 import { classNames } from '../lib/format'
 import { Skeleton } from '../components/ui'
+import { connectNotifications, disconnectNotifications, onNotification } from '../lib/notifications'
+import { dismissToast, toast } from './uiSlice'
 
 /**
  * Guards everything behind it.
@@ -48,6 +50,26 @@ const navItems = [
 function AppShell() {
   const dispatch = useAppDispatch()
   const user = useAppSelector((state) => state.auth.user)
+  const queryClient = useQueryClient()
+
+  // Live budget alerts. Mounted here rather than on the dashboard so a warning still
+  // reaches the user while they are on the transactions page adding the very expense
+  // that triggered it.
+  useEffect(() => {
+    connectNotifications()
+
+    const unsubscribe = onNotification((notification) => {
+      dispatch(toast(notification.message, notification.data.status === 'EXCEEDED' ? 'error' : 'info'))
+      // The alert means spend just moved, so anything derived from it is now stale.
+      queryClient.invalidateQueries({ queryKey: ['budgets'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    })
+
+    return () => {
+      unsubscribe()
+      void disconnectNotifications()
+    }
+  }, [dispatch, queryClient])
 
   return (
     <div className="min-h-screen">
@@ -76,7 +98,12 @@ function AppShell() {
           <div className="flex items-center gap-3">
             <span className="hidden text-sm text-slate-500 sm:inline">{user?.name}</span>
             <button
-              onClick={() => dispatch(logout())}
+              onClick={() => {
+                // Close the socket before the session goes, so the next person to sign in
+                // on this browser does not inherit a connection authenticated as someone else.
+                void disconnectNotifications()
+                dispatch(logout())
+              }}
               className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
             >
               Sign out
