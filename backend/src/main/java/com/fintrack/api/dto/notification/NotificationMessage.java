@@ -21,9 +21,12 @@ public record NotificationMessage(
         Object data,
         Instant timestamp
 ) {
+    /** Mirrors {@link com.fintrack.api.model.NotificationType}; the two are converted by name. */
     public enum Type {
         /** Spending crossed a budget item's alert threshold, or passed the limit outright. */
-        BUDGET_THRESHOLD
+        BUDGET_THRESHOLD,
+        /** A recurring bill is coming due. */
+        BILL_DUE
     }
 
     /**

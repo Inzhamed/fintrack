@@ -24,7 +24,7 @@ any phase, what exists still stands on its own.
 - [x] Redis caching for analytics, evicted per user on write
 - [x] Redis-backed rate limiting on the unauthenticated auth endpoints
 - [x] WebSocket budget-threshold alerts, surfaced live in the UI
-- [ ] Bills and reminders on a scheduler
+- [x] Bills and reminders on a scheduler, with a persisted notification feed
 - [ ] Receipt upload to S3-compatible storage
 
 ## Phase 3 — Testing and CI/CD

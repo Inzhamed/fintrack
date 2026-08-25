@@ -3,13 +3,21 @@ package com.fintrack.api.service;
 import com.fintrack.api.dto.budget.BudgetStatus;
 import com.fintrack.api.dto.notification.NotificationMessage;
 import com.fintrack.api.model.BudgetItem;
+import com.fintrack.api.model.Notification;
+import com.fintrack.api.model.NotificationType;
+import com.fintrack.api.model.User;
+import com.fintrack.api.repository.NotificationRepository;
+import com.fintrack.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /** Pushes messages to a single user's WebSocket session. */
@@ -22,6 +30,8 @@ public class NotificationService {
     public static final String DESTINATION = "/queue/notifications";
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
 
     /**
      * Sends to one user, addressed by id.
@@ -41,6 +51,46 @@ public class NotificationService {
         }
     }
 
+
+    /**
+     * Records a notification and pushes it.
+     * <p>
+     * Persisted first, then pushed. The order matters: the row is the durable record, and a
+     * user who was offline when it was generated must still find it in their feed. The push
+     * is the fast path on top, not the delivery mechanism.
+     */
+    @Transactional
+    public Notification publish(UUID userId, NotificationType type, String title, String body,
+                                Map<String, Object> payload) {
+
+        User user = userRepository.getReferenceById(userId);
+
+        Notification notification = notificationRepository.save(Notification.builder()
+                .user(user)
+                .type(type)
+                .title(truncate(title, 160))
+                .body(truncate(body, 500))
+                .payload(payload)
+                .build());
+
+        send(userId, new NotificationMessage(
+                NotificationMessage.Type.valueOf(type.name()),
+                notification.getTitle(),
+                notification.getBody(),
+                payload,
+                Instant.now()));
+
+        return notification;
+    }
+
+    /** The columns are bounded, and a message that overflows one should be shortened, not rejected. */
+    private static String truncate(String value, int maxLength) {
+        if (value == null) {
+            return "";
+        }
+        return value.length() <= maxLength ? value : value.substring(0, maxLength - 1) + "…";
+    }
+
     /**
      * Alerts on a budget item, but only when this transaction is what crossed the line.
      *
@@ -49,6 +99,7 @@ public class NotificationService {
      * @param spentAfter  spend including it
      * @return true when a message was sent
      */
+    @Transactional
     public boolean notifyIfThresholdCrossed(UUID userId, BudgetItem item, String currency,
                                             BigDecimal spentBefore, BigDecimal spentAfter) {
 
@@ -78,7 +129,19 @@ public class NotificationService {
                 percent,
                 after);
 
-        send(userId, NotificationMessage.budgetThreshold(alert, currency));
+        NotificationMessage message = NotificationMessage.budgetThreshold(alert, currency);
+        // Through publish so the alert is recorded as well as pushed - a user who was not
+        // connected when they overspent should still find out.
+        publish(userId, NotificationType.BUDGET_THRESHOLD, message.title(), message.message(),
+                Map.of(
+                        "budgetItemId", item.getId().toString(),
+                        "categoryId", category.getId().toString(),
+                        "categoryName", category.getName(),
+                        "spent", spentAfter.toPlainString(),
+                        "limitAmount", item.getLimitAmount().toPlainString(),
+                        "percentUsed", percent.toPlainString(),
+                        "status", after.name()));
+
         log.info("Budget {} alert for user {} on category {}", after, userId, category.getName());
         return true;
     }

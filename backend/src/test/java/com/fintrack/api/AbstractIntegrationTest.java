@@ -41,6 +41,8 @@ abstract class AbstractIntegrationTest {
 
     @Autowired private TransactionRepository transactionRepository;
     @Autowired private BudgetRepository budgetRepository;
+    @Autowired private BillRepository billRepository;
+    @Autowired private NotificationRepository notificationRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private RefreshTokenRepository refreshTokenRepository;
     @Autowired private UserRepository userRepository;
@@ -50,6 +52,8 @@ abstract class AbstractIntegrationTest {
     void wipe() {
         // Order matters: children before parents, or the foreign keys refuse the delete.
         // Budget items go with their budgets via orphanRemoval.
+        notificationRepository.deleteAll();
+        billRepository.deleteAll();
         transactionRepository.deleteAll();
         budgetRepository.deleteAll();
         // Only user-owned categories. The globals are seeded by migration V2 and must
