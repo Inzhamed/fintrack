@@ -7,6 +7,12 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn -B dependency:go-offline
 
+# Lombok reads its config at compile time: it carries the directive that copies @Lazy
+# onto the generated constructor parameter. Without it @Lazy is silently dropped, the
+# self-injection in AnalyticsService becomes a real cycle, and the container fails to
+# start with "dependencies of some of the beans ... form a cycle" - while a local build,
+# which sees this file, starts fine.
+COPY lombok.config .
 COPY src ./src
 # Tests run in CI against a real Postgres via Testcontainers; running them here would
 # require a Docker daemon inside the build, so the image build only compiles.

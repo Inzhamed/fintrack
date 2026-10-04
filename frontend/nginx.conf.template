@@ -1,3 +1,7 @@
+# Rendered by the nginx image's entrypoint at start-up: ${API_UPSTREAM} is substituted from
+# the environment, so one image serves both compose - where the API answers to "api" - and
+# Kubernetes, where the Service name carries the Helm release prefix. envsubst only replaces
+# variables that are actually set, so nginx's own $host / $scheme / $uri survive intact.
 server {
     listen 8080;
     server_name _;
@@ -29,7 +33,7 @@ server {
     # Same-origin proxy to the API, so the browser makes no cross-origin request and CORS
     # never enters the picture in production.
     location /api/ {
-        proxy_pass http://api:8080;
+        proxy_pass http://${API_UPSTREAM};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         # The API reads the first entry of this to record which address a session came from.
@@ -41,7 +45,7 @@ server {
     # as an ordinary HTTP request and the handshake fails. The long read timeout keeps an
     # idle socket from being closed between heartbeats.
     location /ws {
-        proxy_pass http://api:8080;
+        proxy_pass http://${API_UPSTREAM};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";

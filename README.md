@@ -332,7 +332,7 @@ frontend/
     components/   shared UI primitives
     features/     auth, dashboard, transactions, budgets
     lib/          api client, query hooks, types, formatting
-  Dockerfile, nginx.conf
+  Dockerfile, nginx.conf.template
 backend/
   src/main/java/com/fintrack/api/
     config/       Security, JWT properties

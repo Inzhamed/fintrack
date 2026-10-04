@@ -26,6 +26,11 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            # The API's in-cluster Service name. The image defaults to the compose name,
+            # which does not resolve here, so the chart supplies the release-prefixed one.
+            - name: API_UPSTREAM
+              value: "{{ include "fintrack.fullname" . }}-api:{{ .Values.api.port }}"
           ports:
             - name: http
               containerPort: {{ .Values.web.port }}
