@@ -75,7 +75,7 @@ jobs:
       # Records what built this image and from which commit, so a consumer can verify the
       # image came from this repository rather than from someone who pushed to the registry.
       - name: Attest provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ghcr.io/${{ github.repository }}/${{ matrix.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
