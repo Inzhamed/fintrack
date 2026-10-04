@@ -40,10 +40,22 @@ any phase, what exists still stands on its own.
 The workflows are written and their YAML validated, but they have never executed - the
 repository has no remote yet. Treat them as unproven until a first run goes green.
 
-## Phase 4 — Kubernetes and Terraform
+## Phase 4 — Kubernetes and Terraform  *(in progress)*
 
-k3d locally, then a Helm chart, then Terraform-provisioned infrastructure and a live
-deployment on k3s with real TLS.
+- [x] Helm chart: API, web, Postgres and MinIO StatefulSets, Redis, ingress, HPAs, probes
+- [x] Per-environment values: `local` (k3d) and `production`
+- [x] Deployed and verified on a local k3d cluster (k3s v1.31.4): every pod ready, the app
+      served through the Traefik ingress, nginx proxying to the API
+- [x] Fixed what that first real deploy exposed and no static check had caught:
+      `lombok.config` missing from the API image, and the nginx upstream hardcoded to the
+      Compose service name
+- [x] Terraform module for an Oracle Always Free ARM node: VCN, subnet, gateway, route
+      table, security list, instance, cloud-init installing k3s
+- [ ] Multi-arch images: the target node is ARM, the release workflow builds amd64 only
+- [ ] Remote Terraform state
+- [ ] LocalStack-backed AWS module (S3 + IAM)
+- [ ] `terraform apply` against the real account, k3s running on the node
+- [ ] Domain and TLS through cert-manager: a public URL
 
 ## Phase 5 — Observability and events
 
