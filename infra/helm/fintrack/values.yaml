@@ -86,7 +86,8 @@ redis:
 
 storage:
   enabled: true
-  image: minio/minio:latest
+  # Pinned: a moving tag let the previous image vanish from under a working deployment.
+  image: rustfs/rustfs:1.0.1
   bucket: fintrack-receipts
   storageSize: 10Gi
   # Where a *browser* reaches object storage. Presigned URLs are signed against this, and a

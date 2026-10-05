@@ -1,7 +1,11 @@
 {{- if .Values.storage.enabled }}
 {{/*
-MinIO for receipt objects. A StatefulSet for the same reason as Postgres: it owns a volume
+RustFS for receipt objects. A StatefulSet for the same reason as Postgres: it owns a volume
 and needs a stable identity.
+
+This was MinIO until its images were withdrawn from Docker Hub and quay.io, which made the
+pod unschedulable anywhere without a cached copy. RustFS speaks the same S3 API, so nothing
+in the application changed.
 
 In a real deployment this is the first thing to replace with a managed store - S3 or
 Cloudflare R2 - since the SDK code is identical and object storage is precisely the workload
@@ -25,21 +29,24 @@ spec:
       labels:
         {{- include "fintrack.selectorLabels" (dict "root" . "component" "storage") | nindent 8 }}
     spec:
+      # The image's own user, not the 1000 the other pods use: RustFS writes to /logs, a
+      # directory the image creates owned by uid 10001 and closed to everyone else, so any
+      # other uid fails at startup. fsGroup makes the data volume writable by the same group.
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        fsGroup: 1000
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
       containers:
-        - name: minio
+        - name: storage
           image: {{ .Values.storage.image }}
-          args: ["server", "/data", "--console-address", ":9001"]
           env:
-            - name: MINIO_ROOT_USER
+            - name: RUSTFS_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "fintrack.secretName" . }}
                   key: STORAGE_ACCESS_KEY
-            - name: MINIO_ROOT_PASSWORD
+            - name: RUSTFS_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "fintrack.secretName" . }}
@@ -54,15 +61,15 @@ spec:
               mountPath: /data
           readinessProbe:
             httpGet:
-              # MinIO's own readiness endpoint, which reports whether the object layer is
+              # The server's own readiness endpoint, which reports whether storage is
               # initialised - not merely whether the port is open.
-              path: /minio/health/ready
+              path: /health/ready
               port: api
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /minio/health/live
+              path: /health
               port: api
             initialDelaySeconds: 20
             periodSeconds: 30

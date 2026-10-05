@@ -42,5 +42,5 @@ redis:
 storage:
   enabled: true
   storageSize: 2Gi
-  # The browser reaches MinIO through the host port k3d publishes, not the cluster service.
+  # The browser reaches object storage through the host port k3d publishes, not the cluster service.
   publicEndpoint: "http://localhost:9000"

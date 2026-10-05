@@ -21,7 +21,7 @@ written and validated but not yet deployed — see [infra/README.md](infra/READM
 | Database | PostgreSQL 16, Flyway migrations |
 | Cache & limits | Redis (Lettuce), Spring Cache |
 | Real-time | STOMP over WebSocket |
-| Storage | S3-compatible (MinIO locally), AWS SDK v2 |
+| Storage | S3-compatible (RustFS locally), AWS SDK v2 |
 | Auth | JWT access tokens (jjwt), rotating opaque refresh tokens, BCrypt |
 | Docs | springdoc-openapi (Swagger UI) |
 | Tests | JUnit 5, AssertJ, MockMvc, Testcontainers |
@@ -97,7 +97,7 @@ Three layers, 145 tests in total:
 | Frontend unit | 25 | `cd frontend && npm test` |
 | End-to-end | 9 | `cd frontend && npm run e2e` |
 
-Testcontainers starts a real PostgreSQL, Redis and MinIO, so caching, rate limiting and
+Testcontainers starts a real PostgreSQL, Redis and RustFS, so caching, rate limiting and
 object storage are exercised against the actual servers rather than mocks. Eight backend
 tests drive a real WebSocket against a running app.
 

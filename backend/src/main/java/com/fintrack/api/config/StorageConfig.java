@@ -22,9 +22,9 @@ import java.net.URI;
 /**
  * S3-compatible object storage for receipts.
  * <p>
- * Points at MinIO locally and at real S3 or Cloudflare R2 in production - the client code is
- * the same either way, which is the reason for choosing an S3-compatible store rather than
- * anything bespoke.
+ * Points at a self-hosted S3 server locally and at real S3 or Cloudflare R2 in production -
+ * the client code is the same either way, which is the reason for choosing an S3-compatible
+ * store rather than anything bespoke.
  */
 @Configuration
 @ConditionalOnProperty(name = "fintrack.storage.enabled", havingValue = "true", matchIfMissing = true)
@@ -53,7 +53,8 @@ public class StorageConfig {
     ) {
         public StorageProperties {
             if (region == null || region.isBlank()) {
-                // MinIO ignores the region, but the SDK refuses to build a client without one.
+                // A self-hosted S3 server ignores the region, but the SDK refuses to build a
+                // client without one.
                 region = "us-east-1";
             }
             if (publicEndpoint == null || publicEndpoint.isBlank()) {
@@ -68,8 +69,8 @@ public class StorageConfig {
                 .endpointOverride(URI.create(properties.endpoint()))
                 .region(Region.of(properties.region()))
                 .credentialsProvider(credentials())
-                // MinIO serves buckets as a path, not a subdomain: virtual-host addressing
-                // would resolve to bucket.localhost, which does not exist.
+                // A self-hosted S3 server serves buckets as a path, not a subdomain: virtual-host
+                // addressing would resolve to bucket.localhost, which does not exist.
                 .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
                 .build();
     }

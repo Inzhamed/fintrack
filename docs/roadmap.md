@@ -25,7 +25,7 @@ any phase, what exists still stands on its own.
 - [x] Redis-backed rate limiting on the unauthenticated auth endpoints
 - [x] WebSocket budget-threshold alerts, surfaced live in the UI
 - [x] Bills and reminders on a scheduler, with a persisted notification feed
-- [x] Receipt upload to S3-compatible storage (MinIO), served by presigned URL
+- [x] Receipt upload to S3-compatible storage (RustFS, formerly MinIO), served by presigned URL
 
 ## Phase 3 — Testing and CI/CD  *(complete, pending a remote)*
 
@@ -42,7 +42,7 @@ repository has no remote yet. Treat them as unproven until a first run goes gree
 
 ## Phase 4 — Kubernetes and Terraform  *(in progress)*
 
-- [x] Helm chart: API, web, Postgres and MinIO StatefulSets, Redis, ingress, HPAs, probes
+- [x] Helm chart: API, web, Postgres and RustFS StatefulSets, Redis, ingress, HPAs, probes
 - [x] Per-environment values: `local` (k3d) and `production`
 - [x] Deployed and verified on a local k3d cluster (k3s v1.31.4): every pod ready, the app
       served through the Traefik ingress, nginx proxying to the API

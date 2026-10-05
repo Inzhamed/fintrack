@@ -43,23 +43,27 @@ services:
       timeout: 3s
       retries: 10
 
-  # S3-compatible object storage for receipt images. MinIO rather than LocalStack because
-  # this needs one real service, not an emulated AWS - and the same SDK code runs unchanged
-  # against real S3, R2 or any other S3 API when the time comes.
+  # S3-compatible object storage for receipt images. A real server rather than LocalStack
+  # because this needs one real service, not an emulated AWS - and the same SDK code runs
+  # unchanged against real S3, R2 or any other S3 API when the time comes.
+  #
+  # RustFS replaced MinIO, whose images were withdrawn from Docker Hub and quay.io. The tag
+  # is pinned so that a registry change can no longer break a setup that worked yesterday.
   storage:
-    image: minio/minio:latest
+    image: rustfs/rustfs:1.0.1
     container_name: fintrack-storage
-    command: ["server", "/data", "--console-address", ":9001"]
     environment:
-      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-fintrack}
-      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:?STORAGE_SECRET_KEY is required - see .env.example}
+      RUSTFS_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-fintrack}
+      RUSTFS_SECRET_KEY: ${STORAGE_SECRET_KEY:?STORAGE_SECRET_KEY is required - see .env.example}
     ports:
       - "${STORAGE_PORT:-9000}:9000"
       - "${STORAGE_CONSOLE_PORT:-9001}:9001"
     volumes:
-      - storage_data:/data
+      # A fresh volume, not MinIO's old one: RustFS makes no promise to read MinIO's
+      # on-disk format, and these are disposable development receipts.
+      - rustfs_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health/ready"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -120,4 +124,4 @@ services:
 
 volumes:
   db_data:
-  storage_data:
+  rustfs_data:

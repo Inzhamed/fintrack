@@ -45,27 +45,32 @@ class TestcontainersConfiguration {
     }
 
     /**
-     * MinIO, so receipt handling is exercised against a real S3 API rather than a mock.
+     * RustFS, so receipt handling is exercised against a real S3 API rather than a mock.
+     * <p>
+     * This was MinIO until its images were withdrawn from Docker Hub and quay.io: CI could no
+     * longer pull them, while machines holding a cached copy kept passing. The tag is pinned
+     * for the same reason - a moving tag makes a green build depend on what a registry happened
+     * to serve that day.
      * <p>
      * Not a {@code @ServiceConnection}: Spring Boot has no connection-details contract for a
      * generic S3 endpoint, so the properties are registered explicitly once the container has
      * a mapped port.
      */
     @Bean
-    GenericContainer<?> minioContainer() {
-        return new GenericContainer<>(DockerImageName.parse("minio/minio:latest"))
+    GenericContainer<?> storageContainer() {
+        return new GenericContainer<>(DockerImageName.parse("rustfs/rustfs:1.0.1"))
                 .withExposedPorts(9000)
-                .withEnv("MINIO_ROOT_USER", "testaccess")
-                .withEnv("MINIO_ROOT_PASSWORD", "testsecret")
-                .withCommand("server", "/data")
-                .waitingFor(Wait.forListeningPort());
+                .withEnv("RUSTFS_ACCESS_KEY", "testaccess")
+                .withEnv("RUSTFS_SECRET_KEY", "testsecret")
+                // Ready, not merely listening: the port opens before requests are served.
+                .waitingFor(Wait.forHttp("/health/ready").forPort(9000).forStatusCode(200));
     }
 
     @Bean
-    DynamicPropertyRegistrar minioProperties(GenericContainer<?> minioContainer) {
+    DynamicPropertyRegistrar storageProperties(GenericContainer<?> storageContainer) {
         return registry -> {
             String endpoint = "http://%s:%d".formatted(
-                    minioContainer.getHost(), minioContainer.getMappedPort(9000));
+                    storageContainer.getHost(), storageContainer.getMappedPort(9000));
             registry.add("fintrack.storage.endpoint", () -> endpoint);
             // Same host in tests: there is no container network to bridge, so the signing
             // endpoint and the reachable endpoint are one and the same.

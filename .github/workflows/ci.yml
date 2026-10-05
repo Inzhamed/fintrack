@@ -31,7 +31,7 @@ jobs:
           cache: maven
 
       # Docker is available on ubuntu runners, so Testcontainers starts real Postgres,
-      # Redis and MinIO here rather than the suite silently degrading to mocks.
+      # Redis and RustFS here rather than the suite silently degrading to mocks.
       # An explicit `shell: bash` runs the step under pipefail, so a Maven failure still
       # fails the step instead of being masked by tee's own success.
       - name: Build, test and check coverage
