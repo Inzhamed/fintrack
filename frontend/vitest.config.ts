@@ -9,6 +9,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Without this Vitest collects every *.spec.ts as well, including the Playwright
+    // journeys under e2e/, and fails on Playwright's own test().
+    include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'lcov'],
