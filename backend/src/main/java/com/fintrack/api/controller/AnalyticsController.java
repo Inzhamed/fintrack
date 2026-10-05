@@ -12,6 +12,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Clock;
 import java.time.LocalDate;
 
 /**
@@ -25,13 +26,14 @@ import java.time.LocalDate;
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
+    private final Clock clock;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Everything the landing screen needs, in one request",
             description = "This month and last month side by side, spend by category, a "
                     + "six-month cashflow trend, recent activity, and any budget alerts.")
     public DashboardResponse dashboard(@AuthenticationPrincipal AuthenticatedUser principal) {
-        return analyticsService.dashboard(principal.id(), LocalDate.now());
+        return analyticsService.dashboard(principal.id(), LocalDate.now(clock));
     }
 
     @GetMapping("/analytics/summary")

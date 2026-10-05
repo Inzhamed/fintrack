@@ -36,11 +36,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * user-destination routing - would go untested.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, FixedClockConfiguration.class})
 @ActiveProfiles("test")
 class BudgetAlertWebSocketIT {
 
-    private static final YearMonth THIS_MONTH = YearMonth.now();
+    private static final YearMonth THIS_MONTH = YearMonth.now(FixedClockConfiguration.CLOCK);
 
     @LocalServerPort
     private int port;

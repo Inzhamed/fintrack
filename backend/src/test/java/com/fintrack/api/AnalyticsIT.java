@@ -21,7 +21,7 @@ class AnalyticsIT extends AbstractIntegrationTest {
      * Dates are relative to the current month, because the dashboard reports on "now" and a
      * suite pinned to fixed dates would start failing the moment the calendar moved past it.
      */
-    private static final YearMonth THIS_MONTH = YearMonth.now();
+    private static final YearMonth THIS_MONTH = YearMonth.now(FixedClockConfiguration.CLOCK);
 
     private static String day(int dayOfMonth) {
         return THIS_MONTH.atDay(dayOfMonth).toString();

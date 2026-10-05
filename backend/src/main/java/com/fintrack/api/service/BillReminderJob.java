@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -48,6 +49,7 @@ public class BillReminderJob {
     private final BillRepository billRepository;
     private final NotificationService notificationService;
     private final ObjectProvider<StringRedisTemplate> redisTemplate;
+    private final Clock clock;
 
     /**
      * Runs hourly rather than daily.
@@ -62,7 +64,7 @@ public class BillReminderJob {
             log.debug("Another instance is running the bill reminder scan");
             return;
         }
-        run(LocalDate.now());
+        run(LocalDate.now(clock));
     }
 
     /**

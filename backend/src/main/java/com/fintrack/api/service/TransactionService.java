@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +44,7 @@ public class TransactionService {
     private final BudgetRepository budgetRepository;
     private final CacheInvalidator cacheInvalidator;
     private final NotificationService notificationService;
+    private final Clock clock;
 
     /**
      * Filtered, paginated list, newest first by default.
@@ -108,7 +110,7 @@ public class TransactionService {
                 .currency(request.currency() == null ? user.getBaseCurrency() : request.currency())
                 .description(trimToNull(request.description()))
                 .merchant(trimToNull(request.merchant()))
-                .occurredOn(request.occurredOn() == null ? LocalDate.now() : request.occurredOn())
+                .occurredOn(request.occurredOn() == null ? LocalDate.now(clock) : request.occurredOn())
                 .build();
 
         // saveAndFlush so @CreationTimestamp/@UpdateTimestamp are populated before the

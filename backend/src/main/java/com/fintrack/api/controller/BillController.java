@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -24,12 +25,13 @@ import java.util.UUID;
 public class BillController {
 
     private final BillService billService;
+    private final Clock clock;
 
     @GetMapping
     @Operation(summary = "List bills, active first",
             description = "Each carries its next due date, computed from the recurrence rule.")
     public List<BillResponse> list(@AuthenticationPrincipal AuthenticatedUser principal) {
-        return billService.list(principal.id(), LocalDate.now());
+        return billService.list(principal.id(), LocalDate.now(clock));
     }
 
     @PostMapping
@@ -39,7 +41,7 @@ public class BillController {
                     + "A due day past the end of a short month is clamped to its last day.")
     public BillResponse create(@AuthenticationPrincipal AuthenticatedUser principal,
                                @Valid @RequestBody CreateBillRequest request) {
-        return billService.create(principal.id(), request, LocalDate.now());
+        return billService.create(principal.id(), request, LocalDate.now(clock));
     }
 
     @PatchMapping("/{id}")
@@ -49,7 +51,7 @@ public class BillController {
     public BillResponse update(@AuthenticationPrincipal AuthenticatedUser principal,
                                @PathVariable UUID id,
                                @Valid @RequestBody UpdateBillRequest request) {
-        return billService.update(principal.id(), id, request, LocalDate.now());
+        return billService.update(principal.id(), id, request, LocalDate.now(clock));
     }
 
     @DeleteMapping("/{id}")

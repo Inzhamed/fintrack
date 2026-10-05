@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
@@ -49,11 +50,12 @@ public class AnalyticsService {
     private final TransactionRepository transactionRepository;
     private final BudgetRepository budgetRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     @Cacheable(cacheNames = CacheConfig.SUMMARY, key = "#userId + ':' + #from + ':' + #to")
     @Transactional(readOnly = true)
     public SummaryResponse summary(UUID userId, LocalDate from, LocalDate to) {
-        Range range = Range.of(from, to);
+        Range range = Range.of(from, to, YearMonth.now(clock));
         return summaryFor(userId, range.from(), range.to(), currencyOf(userId));
     }
 
@@ -62,7 +64,7 @@ public class AnalyticsService {
     @Transactional(readOnly = true)
     public CategoryBreakdownResponse byCategory(UUID userId, LocalDate from, LocalDate to,
                                                 EntryType type) {
-        Range range = Range.of(from, to);
+        Range range = Range.of(from, to, YearMonth.now(clock));
         EntryType direction = type == null ? EntryType.EXPENSE : type;
 
         List<CategoryTotal> totals = transactionRepository.totalsByCategory(
@@ -90,7 +92,7 @@ public class AnalyticsService {
     @Cacheable(cacheNames = CacheConfig.CASHFLOW, key = "#userId + ':' + #from + ':' + #to")
     @Transactional(readOnly = true)
     public CashflowResponse cashflow(UUID userId, LocalDate from, LocalDate to) {
-        Range range = Range.of(from, to);
+        Range range = Range.of(from, to, YearMonth.now(clock));
         return cashflowFor(userId, range.from(), range.to(), currencyOf(userId));
     }
 
@@ -246,13 +248,13 @@ public class AnalyticsService {
     }
 
     /**
-     * A validated reporting window. Defaults to the current calendar month, which is what
+     * A validated reporting window. Defaults to the current calendar month - supplied by the
+     * caller from the injected clock, so the record stays a plain value - which is what
      * the dashboard asks for almost every time.
      */
     private record Range(LocalDate from, LocalDate to) {
 
-        static Range of(LocalDate from, LocalDate to) {
-            YearMonth thisMonth = YearMonth.now();
+        static Range of(LocalDate from, LocalDate to, YearMonth thisMonth) {
             LocalDate start = from == null ? thisMonth.atDay(1) : from;
             LocalDate end = to == null ? thisMonth.atEndOfMonth() : to;
 

@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class CachingAndRateLimitIT extends AbstractIntegrationTest {
 
-    private static final YearMonth THIS_MONTH = YearMonth.now();
+    private static final YearMonth THIS_MONTH = YearMonth.now(FixedClockConfiguration.CLOCK);
 
     @Autowired
     private StringRedisTemplate redis;

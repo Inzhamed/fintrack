@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -55,6 +56,7 @@ public class CsvExportService {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final TransactionRepository transactionRepository;
+    private final Clock clock;
 
     /**
      * Renders the transactions matching {@code filter} as CSV bytes.
@@ -118,7 +120,7 @@ public class CsvExportService {
     /** Suggested filename, carrying the range so repeated downloads do not collide. */
     public String fileName(TransactionFilter filter) {
         String from = filter.from() == null ? "all" : filter.from().toString();
-        String to = filter.to() == null ? LocalDate.now().toString() : filter.to().toString();
+        String to = filter.to() == null ? LocalDate.now(clock).toString() : filter.to().toString();
         return "fintrack-transactions-%s-to-%s.csv".formatted(from, to);
     }
 
