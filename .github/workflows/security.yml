@@ -54,7 +54,7 @@ jobs:
           category: trivy-${{ matrix.name }}
 
       - name: Fail on unfixed critical findings
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: fintrack-${{ matrix.name }}:scan
           format: table
