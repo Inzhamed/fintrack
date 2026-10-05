@@ -35,8 +35,11 @@ jobs:
       - name: Build the image
         run: docker build -t fintrack-${{ matrix.name }}:scan ${{ matrix.context }}
 
+      # Pinned to a commit, not a tag. Aqua moved this action's tags to a v prefix - 0.28.0
+      # vanished while v0.28.0 exists - and the scan broke overnight. A tag that can be renamed
+      # can also be repointed at different code. Dependabot still proposes updates for SHA pins.
       - name: Scan with Trivy
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: fintrack-${{ matrix.name }}:scan
           format: sarif
@@ -54,7 +57,7 @@ jobs:
           category: trivy-${{ matrix.name }}
 
       - name: Fail on unfixed critical findings
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: fintrack-${{ matrix.name }}:scan
           format: table
