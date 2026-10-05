@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.0.8</version>
+		<version>4.1.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.fintrack</groupId>
@@ -20,9 +20,9 @@
 		</scm>
 	<properties>
 		<java.version>21</java.version>
-		<jjwt.version>0.12.6</jjwt.version>
-		<awssdk.version>2.46.7</awssdk.version>
-		<jacoco.version>0.8.13</jacoco.version>
+		<jjwt.version>0.13.0</jjwt.version>
+		<awssdk.version>2.55.10</awssdk.version>
+		<jacoco.version>0.8.15</jacoco.version>
 		<!-- Set from the measured figure and ratcheted upward, never aspirational:
 		     a gate above what the suite achieves fails every build and gets disabled. -->
 		<coverage.instruction.minimum>0.80</coverage.instruction.minimum>
@@ -91,7 +91,7 @@
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>3.1.0</version>
+			<version>3.1.1</version>
 		</dependency>
 
 		<dependency>
