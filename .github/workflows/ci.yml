@@ -32,9 +32,26 @@ jobs:
 
       # Docker is available on ubuntu runners, so Testcontainers starts real Postgres,
       # Redis and MinIO here rather than the suite silently degrading to mocks.
+      # An explicit `shell: bash` runs the step under pipefail, so a Maven failure still
+      # fails the step instead of being masked by tee's own success.
       - name: Build, test and check coverage
         working-directory: backend
-        run: ./mvnw -B verify
+        shell: bash
+        run: ./mvnw -B verify 2>&1 | tee "$RUNNER_TEMP/maven.log"
+
+      # Reading a run log needs a signed-in account, but annotations are public and show
+      # inline on the commit and on every pull request. Publishing Maven's [ERROR] lines as
+      # one annotation puts the cause of a red build on the page instead of in a log.
+      - name: Surface Maven errors
+        if: failure()
+        shell: bash
+        run: |
+          errors=$(grep -E '^\[ERROR\]' "$RUNNER_TEMP/maven.log" \
+            | grep -vE '^\[ERROR\] *$|Re-run Maven|-> \[Help|For more information|full stack trace|full debug logging' \
+            | head -40 \
+            | sed -e 's/%/%25/g' -e 's/\r/%0D/g' \
+            | awk '{ printf "%s%%0A", $0 }')
+          echo "::error title=Maven build failed::${errors:-No [ERROR] lines found - see the run log}"
 
       - name: Upload coverage report
         if: always()
