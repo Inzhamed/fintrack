@@ -46,12 +46,20 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          errors=$(grep -E '^\[ERROR\]' "$RUNNER_TEMP/maven.log" \
+          log="$RUNNER_TEMP/maven.log"
+          # An annotation is one line; GitHub turns %0A back into line breaks.
+          encode() { cut -c1-300 | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk '{ printf "%s%%0A", $0 }'; }
+
+          errors=$(grep -E '^\[ERROR\]' "$log" \
             | grep -vE '^\[ERROR\] *$|Re-run Maven|-> \[Help|For more information|full stack trace|full debug logging' \
-            | head -40 \
-            | sed -e 's/%/%25/g' -e 's/\r/%0D/g' \
-            | awk '{ printf "%s%%0A", $0 }')
+            | head -40 | encode)
           echo "::error title=Maven build failed::${errors:-No [ERROR] lines found - see the run log}"
+
+          # A context that fails to start gives its real reason only in Spring Boot's failure
+          # analysis and in the exception chain - neither of which carries an [ERROR] prefix.
+          cause=$( { grep -A 12 'APPLICATION FAILED TO START' "$log" | head -14
+                     grep -E '^Caused by: ' "$log" | awk '!seen[$0]++' | tail -6; } | awk 'NF == 0 || !seen[$0]++' | encode)
+          if [ -n "$cause" ]; then echo "::error title=Root cause::${cause}"; fi
 
       - name: Upload coverage report
         if: always()
